@@ -18,6 +18,8 @@ typedef struct{
 } Segmento;
 
 char mapa[N][M];
+//={{' ',' ',' '},
+//                 {' ',' ',' '}};
 char mapaNivel2[N][M];
 Segmento serpiente[100];
 
