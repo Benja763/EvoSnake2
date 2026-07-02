@@ -36,6 +36,10 @@ int tieneLlave = 0;
 
 int Nivel = 1;
 
+float velocidad = 0.20;
+
+char nombreNivelTexto[30];
+
 char mensaje[100] = "";
 int tiempoMensaje = 0;
 
@@ -176,7 +180,14 @@ void reiniciarJuego()
     desplazamientoX = 1;
     desplazamientoY = 0;
 
-    cargarMapa("nivel1.txt");
+    Nivel = 1;
+
+    char nombreNivel[20];
+    sprintf(nombreNivel, "nivel%d.txt", Nivel);
+
+    strcpy(nombreNivelTexto, "Pradera");
+
+    cargarMapa(nombreNivel);
 }
 
 int haySerpiente(int x, int y)
@@ -229,6 +240,12 @@ int main()
     curva2 = al_load_bitmap("CurvaSerp2.png");
     curva3 = al_load_bitmap("CurvaSerp3.png");
     curva4 = al_load_bitmap("CurvaSerp4.png");
+
+    ALLEGRO_BITMAP *manzana = al_load_bitmap("ComidaManzana.png");
+    ALLEGRO_BITMAP *naranja = al_load_bitmap("ComidaNaranja.png");
+    ALLEGRO_BITMAP *banana = al_load_bitmap("ComidaBanana.png");
+    ALLEGRO_BITMAP *arandano = al_load_bitmap("ComidaArandanos.png");
+    ALLEGRO_BITMAP *aji = al_load_bitmap("ComidaAji.png");
 
     if(!cabezaArriba || !cabezaAbajo ||
    !cabezaIzquierda || !cabezaDerecha ||
@@ -383,6 +400,27 @@ int main()
 
                 cargarMapa(nombreNivel);
 
+                switch(Nivel)
+                {
+                    case 1:
+                        strcpy(nombreNivelTexto, "Pradera");
+                        break;
+
+                    case 2:
+                        strcpy(nombreNivelTexto, "Bosque");
+                        break;
+
+                    case 3:
+                        strcpy(nombreNivelTexto, "Desierto");
+                        break;
+                    case 4:
+                        strcpy(nombreNivelTexto, "Iceberg");
+                        break;
+                    case 5:
+                        strcpy(nombreNivelTexto, "Volcan");
+                        break;
+                }
+
                 tamanoSerpiente = 3;
                 puntaje = 0;
                 tieneLlave = 0;
@@ -392,7 +430,7 @@ int main()
                 desplazamientoX = 1;
                 desplazamientoY = 0;
 
-                sprintf(mensaje, "Bienvenido al Bosque");
+                sprintf(mensaje, "Bienvenido a %s", nombreNivelTexto);
                 tiempoMensaje = 24;
             }
 
@@ -420,14 +458,46 @@ for(int i=0; i<N; i++)
                 break;
 
             case 'C':
+            {
+                ALLEGRO_BITMAP *fruta;
 
-                al_draw_filled_circle(
-                    j*CELL+10,
-                    i*CELL+10,
-                    8,
-                    al_map_rgb(255,0,255));
+                switch(Nivel)
+                {
+                    case 1:
+                        fruta = manzana;
+                        break;
+
+                    case 2:
+                        fruta = naranja;
+                        break;
+
+                    case 3:
+                        fruta = banana;
+                        break;
+
+                    case 4:
+                        fruta = arandano;
+                        break;
+
+                    default:
+                        fruta = aji;
+                        break;
+                }
+
+                al_draw_scaled_bitmap(
+                    fruta,
+                    0,
+                    0,
+                    64,
+                    64,
+                    j*CELL,
+                    i*CELL,
+                    CELL,
+                    CELL,
+                    0);
 
                 break;
+            }
 
             case 'L':
 
@@ -693,6 +763,12 @@ for(int i=0; i<tamanoSerpiente; i++)
     al_destroy_bitmap(cabezaAbajo);
     al_destroy_bitmap(cabezaIzquierda);
     al_destroy_bitmap(cabezaDerecha);
+
+    al_destroy_bitmap(manzana);
+    al_destroy_bitmap(naranja);
+    al_destroy_bitmap(banana);
+    al_destroy_bitmap(arandano);
+    al_destroy_bitmap(aji);
 
     al_destroy_display(display);
     al_destroy_timer(timer);
