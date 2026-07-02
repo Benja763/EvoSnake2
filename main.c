@@ -183,7 +183,7 @@ void reiniciarJuego()
     Nivel = 1;
 
     char nombreNivel[20];
-    sprintf(nombreNivel, "nivel%d.txt", Nivel);
+    sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
 
     strcpy(nombreNivelTexto, "Pradera");
 
@@ -223,29 +223,29 @@ int main()
     ALLEGRO_FONT *font =
         al_create_builtin_font();
 
-    cabezaArriba = al_load_bitmap("CabezaSerpArriba.png");
-    cabezaAbajo = al_load_bitmap("CabezaSerpAbajo.png");
-    cabezaIzquierda = al_load_bitmap("CabezaSerpIzquierda.png");
-    cabezaDerecha = al_load_bitmap("CabezaSerpDerecha.png");
+    cabezaArriba = al_load_bitmap("Sprites/CabezaSerpArriba.png");
+    cabezaAbajo = al_load_bitmap("Sprites/CabezaSerpAbajo.png");
+    cabezaIzquierda = al_load_bitmap("Sprites/CabezaSerpIzquierda.png");
+    cabezaDerecha = al_load_bitmap("Sprites/CabezaSerpDerecha.png");
 
-    cuerpoHorizontal = al_load_bitmap("CuerpoSerpHorizontal.png");
-    cuerpoVertical = al_load_bitmap("CuerpoSerpVertical.png");
+    cuerpoHorizontal = al_load_bitmap("Sprites/CuerpoSerpHorizontal.png");
+    cuerpoVertical = al_load_bitmap("Sprites/CuerpoSerpVertical.png");
 
-    colaArriba = al_load_bitmap("ColaSerpArriba.png");
-    colaAbajo = al_load_bitmap("ColaSerpAbajo.png");
-    colaIzquierda = al_load_bitmap("ColaSerpIzquierda.png");
-    colaDerecha = al_load_bitmap("ColaSerpDerecha.png");
+    colaArriba = al_load_bitmap("Sprites/ColaSerpArriba.png");
+    colaAbajo = al_load_bitmap("Sprites/ColaSerpAbajo.png");
+    colaIzquierda = al_load_bitmap("Sprites/ColaSerpIzquierda.png");
+    colaDerecha = al_load_bitmap("Sprites/ColaSerpDerecha.png");
 
-    curva1 = al_load_bitmap("CurvaSerp1.png");
-    curva2 = al_load_bitmap("CurvaSerp2.png");
-    curva3 = al_load_bitmap("CurvaSerp3.png");
-    curva4 = al_load_bitmap("CurvaSerp4.png");
+    curva1 = al_load_bitmap("Sprites/CurvaSerp1.png");
+    curva2 = al_load_bitmap("Sprites/CurvaSerp2.png");
+    curva3 = al_load_bitmap("Sprites/CurvaSerp3.png");
+    curva4 = al_load_bitmap("Sprites/CurvaSerp4.png");
 
-    ALLEGRO_BITMAP *manzana = al_load_bitmap("ComidaManzana.png");
-    ALLEGRO_BITMAP *naranja = al_load_bitmap("ComidaNaranja.png");
-    ALLEGRO_BITMAP *banana = al_load_bitmap("ComidaBanana.png");
-    ALLEGRO_BITMAP *arandano = al_load_bitmap("ComidaArandanos.png");
-    ALLEGRO_BITMAP *aji = al_load_bitmap("ComidaAji.png");
+    ALLEGRO_BITMAP *manzana = al_load_bitmap("Sprites/ComidaManzana.png");
+    ALLEGRO_BITMAP *naranja = al_load_bitmap("Sprites/ComidaNaranja.png");
+    ALLEGRO_BITMAP *banana = al_load_bitmap("Sprites/ComidaBanana.png");
+    ALLEGRO_BITMAP *arandano = al_load_bitmap("Sprites/ComidaArandanos.png");
+    ALLEGRO_BITMAP *aji = al_load_bitmap("Sprites/ComidaAji.png");
 
     if(!cabezaArriba || !cabezaAbajo ||
    !cabezaIzquierda || !cabezaDerecha ||
@@ -273,7 +273,10 @@ int main()
         al_get_timer_event_source(timer));
 
     al_start_timer(timer);
-    cargarMapa("nivel1.txt");
+    Nivel = 1;
+    char nombreNivel[20];
+    sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
+    cargarMapa(nombreNivel);
     printf("Juego iniciado\n");
 
     int running = 1;
@@ -396,7 +399,7 @@ int main()
                 Nivel = 2;
 
                 char nombreNivel[20];
-                sprintf(nombreNivel, "nivel%d.txt", Nivel);
+                sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
 
                 cargarMapa(nombreNivel);
 
