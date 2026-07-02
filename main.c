@@ -378,7 +378,10 @@ int main()
             {
                 Nivel = 2;
 
-                cargarMapa("nivel2.txt");
+                char nombreNivel[20];
+                sprintf(nombreNivel, "nivel%d.txt", Nivel);
+
+                cargarMapa(nombreNivel);
 
                 tamanoSerpiente = 3;
                 puntaje = 0;
