@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -18,30 +19,58 @@ typedef struct{
     int y;
 } Segmento;
 
+typedef struct
+{
+    int nivel;
+    int puntaje;
+    int tiempo;
+    int tieneLlave;
+
+    int comidasNecesarias;
+    int comidasFase;
+
+
+
+    int tiempoMensaje;
+
+    char mensaje[100];
+    char archivoNivel[30];
+    char nombreNivel[30];
+
+    int xLlave;
+    int yLlave;
+} Juego;
+
+typedef struct
+{
+    int x;
+    int y;
+    bool activa;
+
+} Comida;
+
+typedef struct
+{
+    int numero;
+    int comidasPorFase;
+    int comidasComidas;
+
+} Fase;
+
+#define MAX_COMIDAS 10
+
+Comida comidas[MAX_COMIDAS];
+
 char mapa[N][M];
-//={{' ',' ',' '},
-//                 {' ',' ',' '}};
 Segmento serpiente[100];
+
+Juego juego;
+
+Fase fase;
 
 int tamanoSerpiente = 3;
 
-int puntaje = 0;
-
-int tiempo = 0;
 int contadorTiempo = 0;
-
-int comidasNecesarias = 5;
-
-int tieneLlave = 0;
-
-int Nivel = 1;
-
-float velocidad = 0.20;
-
-char nombreNivelTexto[30];
-
-char mensaje[100] = "";
-int tiempoMensaje = 0;
 
 int desplazamientoX = 1;
 int desplazamientoY = 0;
@@ -66,7 +95,7 @@ ALLEGRO_BITMAP *curva4;
 
 void generarComida();
 int haySerpiente(int x, int y);
-
+int hayComida(int x, int y);
 void cargarMapa(char nombreArchivo[])
 {
     FILE *archivo = fopen(nombreArchivo, "r");
@@ -96,9 +125,17 @@ void cargarMapa(char nombreArchivo[])
 
                 mapa[i][j] = ' ';
             }
+
+            if(mapa[i][j] == 'L')
+            {
+                juego.xLlave = j;
+                juego.yLlave = i;
+
+                mapa[i][j] = ' ';
+            }
         }
 
-        fgetc(archivo); // Saltar el Enter al final de cada línea
+        fgetc(archivo);
     }
 
     fclose(archivo);
@@ -115,9 +152,29 @@ void generarComida()
     
     } while(mapa[y][x] != ' ' || haySerpiente(x, y));
 
-    mapa[y][x] = 'C';
+    comidas[0].x = x;
+    comidas[0].y = y;
+    comidas[0].activa = true;
 }
 
+void generarComidas(int cantidad)
+{
+    for(int i=0; i < cantidad && i < MAX_COMIDAS; i++)
+    {
+        int x, y;
+    
+        do
+        {
+            x = rand() % M;
+            y = rand() % N;
+        
+        } while(mapa[y][x] != ' ' || haySerpiente(x, y) || hayComida(x, y));
+
+        comidas[i].x = x;
+        comidas[i].y = y;
+        comidas[i].activa = true;
+    }
+}
 int verificarColisionMuro()
 {
     if(mapa[serpiente[0].y][serpiente[0].x] == '#')
@@ -144,13 +201,13 @@ int verificarColisionSerpiente()
 
 int verificarPuertaBloqueada()
 {
-    if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && !tieneLlave)
+    if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && !juego.tieneLlave)
     {
         serpiente[0].x -= desplazamientoX;
         serpiente[0].y -= desplazamientoY;
 
-        sprintf(mensaje, "La puerta esta cerrada");
-        tiempoMensaje = 24;
+        sprintf(juego.mensaje, "La puerta esta cerrada");
+        juego.tiempoMensaje = 24;
 
         return 1;
     }
@@ -172,22 +229,32 @@ int verificarLimites()
 void reiniciarJuego()
 {
     tamanoSerpiente = 3;
-    puntaje = 0;
-    tieneLlave = 0;
-    tiempo = 0;
+    juego.puntaje = 0;
+    juego.tieneLlave = 0;
+    juego.tiempo = 0;
     contadorTiempo = 0;
+
+    fase.numero = 1;
+    fase.comidasPorFase = 3;
+    fase.comidasComidas = 0;
 
     desplazamientoX = 1;
     desplazamientoY = 0;
 
-    Nivel = 1;
+    juego.nivel = 1;
 
-    char nombreNivel[20];
-    sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
+    sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
 
-    strcpy(nombreNivelTexto, "Pradera");
+    strcpy(juego.nombreNivel, "Pradera");
 
-    cargarMapa(nombreNivel);
+    for(int i = 0; i < MAX_COMIDAS; i++)
+    {
+        comidas[i].activa = false;
+    }
+
+    cargarMapa(juego.archivoNivel);
+
+    generarComidas(fase.comidasPorFase);
 }
 
 int haySerpiente(int x, int y)
@@ -195,6 +262,19 @@ int haySerpiente(int x, int y)
     for(int i=0; i<tamanoSerpiente; i++)
     {
         if(serpiente[i].x == x && serpiente[i].y == y)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int hayComida(int x, int y)
+{
+    for(int i=0; i<MAX_COMIDAS; i++)
+    {
+        if(comidas[i].activa && comidas[i].x == x && comidas[i].y == y)
         {
             return 1;
         }
@@ -223,6 +303,8 @@ int main()
     ALLEGRO_FONT *font =
         al_create_builtin_font();
 
+        //Sprites de la serpiente
+
     cabezaArriba = al_load_bitmap("Sprites/CabezaSerpArriba.png");
     cabezaAbajo = al_load_bitmap("Sprites/CabezaSerpAbajo.png");
     cabezaIzquierda = al_load_bitmap("Sprites/CabezaSerpIzquierda.png");
@@ -241,11 +323,19 @@ int main()
     curva3 = al_load_bitmap("Sprites/CurvaSerp3.png");
     curva4 = al_load_bitmap("Sprites/CurvaSerp4.png");
 
+    //Sprites de la comida
+
     ALLEGRO_BITMAP *manzana = al_load_bitmap("Sprites/ComidaManzana.png");
     ALLEGRO_BITMAP *naranja = al_load_bitmap("Sprites/ComidaNaranja.png");
     ALLEGRO_BITMAP *banana = al_load_bitmap("Sprites/ComidaBanana.png");
     ALLEGRO_BITMAP *arandano = al_load_bitmap("Sprites/ComidaArandanos.png");
     ALLEGRO_BITMAP *aji = al_load_bitmap("Sprites/ComidaAji.png");
+
+    ALLEGRO_BITMAP *fondoPradera = al_load_bitmap("Sprites/FondoNivel1.png");
+    ALLEGRO_BITMAP *arbusto = al_load_bitmap("Sprites/MurosArbustosNivel1.png");
+
+    ALLEGRO_BITMAP *llaveSprite = al_load_bitmap("Sprites/LlaveSprite.png");
+    ALLEGRO_BITMAP *puertaSprite = al_load_bitmap("Sprites/PuertaSprite.png");
 
     if(!cabezaArriba || !cabezaAbajo ||
    !cabezaIzquierda || !cabezaDerecha ||
@@ -273,10 +363,13 @@ int main()
         al_get_timer_event_source(timer));
 
     al_start_timer(timer);
-    Nivel = 1;
-    char nombreNivel[20];
-    sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
-    cargarMapa(nombreNivel);
+    juego.nivel = 1;
+    fase.numero = 1;
+    fase.comidasPorFase = 3;
+    fase.comidasComidas = 0;
+    sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
+    cargarMapa(juego.archivoNivel);
+    generarComidas(fase.comidasPorFase);
     printf("Juego iniciado\n");
 
     int running = 1;
@@ -360,85 +453,143 @@ int main()
 
             verificarPuertaBloqueada();
 
-            if(mapa[serpiente[0].y][serpiente[0].x] == 'C')
+            int comidaComida = 0;
+
+            for(int i=0; i<MAX_COMIDAS; i++)
             {
-                puntaje++;
-
-                serpiente[tamanoSerpiente] = serpiente[tamanoSerpiente-1];
-
-                tamanoSerpiente++;
-
-                mapa[serpiente[0].y][serpiente[0].x] = ' ';
-
-                generarComida();
-
-                if(puntaje >= comidasNecesarias)
+                if(comidas[i].activa && serpiente[0].x == comidas[i].x && serpiente[0].y == comidas[i].y)
                 {
-                    sprintf(mensaje, "Ya puedes recoger la llave");
-                    tiempoMensaje = 24;
+                    comidas[i].activa = false;
+
+                    tamanoSerpiente++;
+
+                    serpiente[tamanoSerpiente] = serpiente[tamanoSerpiente-1];
+
+                    juego.puntaje++;
+
+                    fase.comidasComidas++;
+
+                    comidaComida = 1;
+
+                    break;
+                }
+            }
+
+            if(comidaComida)
+            {
+                int quedan = 0;
+
+                for(int i=0; i<MAX_COMIDAS; i++)
+                {
+                    if(comidas[i].activa)
+                    {
+                        quedan++;
+                    }
+                }
+
+                if(quedan == 0)
+                {
+                    if(fase.numero < 3)
+                    {
+                        fase.numero++;
+                        fase.comidasPorFase++;
+                        fase.comidasComidas = 0;
+
+                        sprintf(juego.mensaje, "Fase %d", fase.numero);
+                        juego.tiempoMensaje = 24;
+
+                        generarComidas(fase.comidasPorFase);
+                    }
+                    else
+                    {
+                        mapa[juego.yLlave][juego.xLlave] = 'L';
+                        strcpy(juego.mensaje, "Ya puedes recoger la llave");
+                        juego.tiempoMensaje = 24;
+                    }
                 }
             }
 
            if(mapa[serpiente[0].y][serpiente[0].x] == 'L')
             {
-                if(puntaje >= comidasNecesarias)
-                {
-                tieneLlave = 1;
+                juego.tieneLlave = 1;
 
                 mapa[serpiente[0].y][serpiente[0].x] = ' ';
-                }
-                else
-                {
-                    sprintf(mensaje, "Necesitas %d comidas mas", comidasNecesarias - puntaje);
-                    tiempoMensaje = 24;
-                }
+
+                strcpy(juego.mensaje, "Llave obtenida");
+
+                juego.tiempoMensaje = 24;
             }
 
-            if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && tieneLlave)
+            if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && juego.tieneLlave)
             {
-                Nivel = 2;
+                juego.nivel = 2;
 
-                char nombreNivel[20];
-                sprintf(nombreNivel, "Niveles/nivel%d.txt", Nivel);
+                char archivoNivel[20];
+                sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
 
-                cargarMapa(nombreNivel);
+                cargarMapa(juego.archivoNivel);
 
-                switch(Nivel)
+                switch(juego.nivel)
                 {
                     case 1:
-                        strcpy(nombreNivelTexto, "Pradera");
+                        strcpy(juego.nombreNivel, "Pradera");
                         break;
 
                     case 2:
-                        strcpy(nombreNivelTexto, "Bosque");
+                        strcpy(juego.nombreNivel, "Bosque");
                         break;
 
                     case 3:
-                        strcpy(nombreNivelTexto, "Desierto");
+                        strcpy(juego.nombreNivel, "Desierto");
                         break;
                     case 4:
-                        strcpy(nombreNivelTexto, "Iceberg");
+                        strcpy(juego.nombreNivel, "Iceberg");
                         break;
                     case 5:
-                        strcpy(nombreNivelTexto, "Volcan");
+                        strcpy(juego.nombreNivel, "Volcan");
                         break;
                 }
 
                 tamanoSerpiente = 3;
-                puntaje = 0;
-                tieneLlave = 0;
-                tiempo = 0;
+                juego.puntaje = 0;
+                juego.tieneLlave = 0;
+                juego.tiempo = 0;
                 contadorTiempo = 0;
 
                 desplazamientoX = 1;
                 desplazamientoY = 0;
 
-                sprintf(mensaje, "Bienvenido a %s", nombreNivelTexto);
-                tiempoMensaje = 24;
+                sprintf(juego.mensaje, "Bienvenido a %s", juego.nombreNivel);
+                juego.tiempoMensaje = 24;
             }
 
     al_clear_to_color(
         al_map_rgb(136,231,136));
+
+        if(juego.nivel == 1)
+        {
+            for(int i=0; i<N; i++)
+            {
+                for(int j=0; j<M; j++)
+                {
+                    al_draw_scaled_bitmap(
+                        fondoPradera,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
+                }
+            }
+        }
+        else
+        {
+            al_clear_to_color(al_map_rgb(136,231,136));
+        }              
 
 for(int i=0; i<N; i++)
 {
@@ -449,7 +600,25 @@ for(int i=0; i<N; i++)
 
         switch(casilla)
         {
+            //Muros
             case '#':
+
+            if(juego.nivel == 1)
+            {
+                al_draw_scaled_bitmap(
+                    arbusto,
+                    0,
+                    0,
+                    64,
+                    64,
+                    j*CELL,
+                    i*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else
+            {
 
                 al_draw_filled_rectangle(
                     j*CELL,
@@ -457,38 +626,34 @@ for(int i=0; i<N; i++)
                     j*CELL+CELL,
                     i*CELL+CELL,
                     al_map_rgb(90,90,90));
+            }
 
-                break;
+            break;
 
-            case 'C':
-            {
-                ALLEGRO_BITMAP *fruta;
+                //Llave
+            case 'L':
 
-                switch(Nivel)
+                if(!juego.tieneLlave)
                 {
-                    case 1:
-                        fruta = manzana;
-                        break;
-
-                    case 2:
-                        fruta = naranja;
-                        break;
-
-                    case 3:
-                        fruta = banana;
-                        break;
-
-                    case 4:
-                        fruta = arandano;
-                        break;
-
-                    default:
-                        fruta = aji;
-                        break;
+                    al_draw_scaled_bitmap(
+                        llaveSprite,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
                 }
 
+                break;
+                //Puerta
+            case 'P':
+
                 al_draw_scaled_bitmap(
-                    fruta,
+                    puertaSprite,
                     0,
                     0,
                     64,
@@ -500,32 +665,36 @@ for(int i=0; i<N; i++)
                     0);
 
                 break;
-            }
-
-            case 'L':
-
-                if(!tieneLlave)
-                {
-                    al_draw_filled_circle(
-                        j*CELL+10,
-                        i*CELL+10,
-                        8,
-                        al_map_rgb(255,255,0));
-                }
-
-                break;
-
-            case 'P':
-
-                al_draw_filled_rectangle(
-                    j*CELL,
-                    i*CELL,
-                    j*CELL+CELL,
-                    i*CELL+CELL,
-                    al_map_rgb(0,0,255));
-
-                break;
         }
+    }
+}
+
+for(int i=0; i<MAX_COMIDAS; i++)
+{
+    if(comidas[i].activa)
+    {
+        ALLEGRO_BITMAP *fruta;
+
+        switch(juego.nivel)
+        {
+            case 1: fruta = manzana; break;
+            case 2: fruta = naranja; break;
+            case 3: fruta = banana; break;
+            case 4: fruta = arandano; break;
+            default: fruta = aji; break;
+        }
+
+        al_draw_scaled_bitmap(
+            fruta,
+            0,
+            0,
+            64,
+            64,
+            comidas[i].x*CELL,
+            comidas[i].y*CELL,
+            CELL,
+            CELL,
+            0);
     }
 }
 
@@ -569,7 +738,7 @@ for(int i=0; i<tamanoSerpiente; i++)
 
         if(dx == 0 && dy == 0)
         {
-            // La serpiente acaba de crecer
+            
             if(desplazamientoX == 1)
                 cola = colaDerecha;
             else if(desplazamientoX == -1)
@@ -626,7 +795,7 @@ for(int i=0; i<tamanoSerpiente; i++)
     }
     else if(dx1 == 0 && dx2 == 0)
     {
-        // Se mueve de arriba hacia abajo
+        // Se mueve de arriba a abajo
         imagen = cuerpoVertical;
     }
 
@@ -669,7 +838,7 @@ for(int i=0; i<tamanoSerpiente; i++)
 
                 sprintf(textoNivel,
                         "Nivel: %d",
-                        Nivel);
+                        juego.nivel);
 
                 al_draw_text(
                     font,
@@ -683,7 +852,7 @@ for(int i=0; i<tamanoSerpiente; i++)
 
                 sprintf(texto,
                         "Puntaje: %d",
-                        puntaje);
+                        juego.puntaje);
 
                 al_draw_text(
                     font,
@@ -697,7 +866,7 @@ for(int i=0; i<tamanoSerpiente; i++)
 
                 sprintf(textoTiempo,
                         "Tiempo: %d",
-                        tiempo);
+                        juego.tiempo);
 
                 al_draw_text(
                     font,
@@ -710,9 +879,8 @@ for(int i=0; i<tamanoSerpiente; i++)
                 char textoComidas[100];
 
                 sprintf(textoComidas,
-                        "Comidas: %d/%d",
-                         puntaje,
-                         comidasNecesarias);
+                        "Fase: %d/3",
+                         fase.numero);
 
                 al_draw_text(
                      font,
@@ -721,8 +889,9 @@ for(int i=0; i<tamanoSerpiente; i++)
                       30,
                       0,
                       textoComidas);
+            //Llave obtenida en Pantalla
 
-            if(tieneLlave)
+            if(juego.tieneLlave)
             {
                 al_draw_text(
                     font,
@@ -733,12 +902,14 @@ for(int i=0; i<tamanoSerpiente; i++)
                     "Llave obtenida");
             }
 
-            if(tiempoMensaje > 0)
+            //Tiempo en pantalla del mensaje
+
+            if(juego.tiempoMensaje > 0)
             {
-                 tiempoMensaje--;
+                 juego.tiempoMensaje--;
             }
 
-            if(tiempoMensaje > 0)
+            if(juego.tiempoMensaje > 0)
             {
                 al_draw_text(
                     font,
@@ -746,7 +917,7 @@ for(int i=0; i<tamanoSerpiente; i++)
                     WIDTH/2,
                     HEIGHT-30,
                     ALLEGRO_ALIGN_CENTER,
-                    mensaje
+                    juego.mensaje
                 );
             }
 
@@ -754,7 +925,7 @@ for(int i=0; i<tamanoSerpiente; i++)
 
             if(contadorTiempo >= 8)
             {
-                tiempo++;
+                juego.tiempo++;
                 contadorTiempo = 0;
             }
 
@@ -772,6 +943,12 @@ for(int i=0; i<tamanoSerpiente; i++)
     al_destroy_bitmap(banana);
     al_destroy_bitmap(arandano);
     al_destroy_bitmap(aji);
+
+    al_destroy_bitmap(fondoPradera);
+    al_destroy_bitmap(arbusto);
+
+    al_destroy_bitmap(llaveSprite);
+    al_destroy_bitmap(puertaSprite);
 
     al_destroy_display(display);
     al_destroy_timer(timer);
