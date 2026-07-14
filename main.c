@@ -14,10 +14,23 @@
 #define N 30
 #define M 40
 
-typedef struct{
+typedef struct
+{
     int x;
     int y;
+
 } Segmento;
+
+typedef struct
+{
+    Segmento segmentos[100];
+
+    int tamano;
+
+    int dx;
+    int dy;
+
+} Serpiente;
 
 typedef struct
 {
@@ -39,6 +52,7 @@ typedef struct
 
     int xLlave;
     int yLlave;
+
 } Juego;
 
 typedef struct
@@ -62,18 +76,13 @@ typedef struct
 Comida comidas[MAX_COMIDAS];
 
 char mapa[N][M];
-Segmento serpiente[100];
+Serpiente serpiente;
 
 Juego juego;
 
 Fase fase;
 
-int tamanoSerpiente = 3;
-
 int contadorTiempo = 0;
-
-int desplazamientoX = 1;
-int desplazamientoY = 0;
 
 ALLEGRO_BITMAP *cabezaArriba;
 ALLEGRO_BITMAP *cabezaAbajo;
@@ -114,14 +123,14 @@ void cargarMapa(char nombreArchivo[])
 
             if(mapa[i][j] == 'S')
             {
-                serpiente[0].x = j;
-                serpiente[0].y = i;
+                serpiente.segmentos[0].x = j;
+                serpiente.segmentos[0].y = i;
 
-                serpiente[1].x = j-1;
-                serpiente[1].y = i;
+                serpiente.segmentos[1].x = j-1;
+                serpiente.segmentos[1].y = i;
 
-                serpiente[2].x = j-2;
-                serpiente[2].y = i;
+                serpiente.segmentos[2].x = j-2;
+                serpiente.segmentos[2].y = i;
 
                 mapa[i][j] = ' ';
             }
@@ -177,7 +186,7 @@ void generarComidas(int cantidad)
 }
 int verificarColisionMuro()
 {
-    if(mapa[serpiente[0].y][serpiente[0].x] == '#')
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == '#')
     {
         return 1;
     }
@@ -187,10 +196,10 @@ int verificarColisionMuro()
 
 int verificarColisionSerpiente()
 {
-    for(int i=1; i<tamanoSerpiente; i++)
+    for(int i=1; i<serpiente.tamano; i++)
     {
-        if(serpiente[0].x == serpiente[i].x &&
-           serpiente[0].y == serpiente[i].y)
+        if(serpiente.segmentos[0].x == serpiente.segmentos[i].x &&
+           serpiente.segmentos[0].y == serpiente.segmentos[i].y)
         {
             return 1;
         }
@@ -201,10 +210,10 @@ int verificarColisionSerpiente()
 
 int verificarPuertaBloqueada()
 {
-    if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && !juego.tieneLlave)
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && !juego.tieneLlave)
     {
-        serpiente[0].x -= desplazamientoX;
-        serpiente[0].y -= desplazamientoY;
+        serpiente.segmentos[0].x -= serpiente.dx;
+        serpiente.segmentos[0].y -= serpiente.dy;
 
         sprintf(juego.mensaje, "La puerta esta cerrada");
         juego.tiempoMensaje = 24;
@@ -217,8 +226,8 @@ int verificarPuertaBloqueada()
 
 int verificarLimites()
 {
-    if(serpiente[0].x < 0 || serpiente[0].x >= M ||
-       serpiente[0].y < 0 || serpiente[0].y >= N)
+    if(serpiente.segmentos[0].x < 0 || serpiente.segmentos[0].x >= M ||
+       serpiente.segmentos[0].y < 0 || serpiente.segmentos[0].y >= N)
     {
         return 1;
     }
@@ -228,7 +237,7 @@ int verificarLimites()
 
 void reiniciarJuego()
 {
-    tamanoSerpiente = 3;
+    serpiente.tamano = 3;
     juego.puntaje = 0;
     juego.tieneLlave = 0;
     juego.tiempo = 0;
@@ -238,8 +247,8 @@ void reiniciarJuego()
     fase.comidasPorFase = 3;
     fase.comidasComidas = 0;
 
-    desplazamientoX = 1;
-    desplazamientoY = 0;
+    serpiente.dx = 1;
+    serpiente.dy = 0;
 
     juego.nivel = 1;
 
@@ -259,9 +268,9 @@ void reiniciarJuego()
 
 int haySerpiente(int x, int y)
 {
-    for(int i=0; i<tamanoSerpiente; i++)
+    for(int i=0; i<serpiente.tamano; i++)
     {
-        if(serpiente[i].x == x && serpiente[i].y == y)
+        if(serpiente.segmentos[i].x == x && serpiente.segmentos[i].y == y)
         {
             return 1;
         }
@@ -363,13 +372,7 @@ int main()
         al_get_timer_event_source(timer));
 
     al_start_timer(timer);
-    juego.nivel = 1;
-    fase.numero = 1;
-    fase.comidasPorFase = 3;
-    fase.comidasComidas = 0;
-    sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
-    cargarMapa(juego.archivoNivel);
-    generarComidas(fase.comidasPorFase);
+    reiniciarJuego();
     printf("Juego iniciado\n");
 
     int running = 1;
@@ -387,34 +390,34 @@ int main()
             switch(ev.keyboard.keycode)
 {
     case ALLEGRO_KEY_UP:
-        if(desplazamientoY != 1)
+        if(serpiente.dy != 1)
         {
-            desplazamientoX = 0;
-            desplazamientoY = -1;
+            serpiente.dx = 0;
+            serpiente.dy = -1;
         }
         break;
 
     case ALLEGRO_KEY_DOWN:
-        if(desplazamientoY != -1)
+        if(serpiente.dy != -1)
         {
-            desplazamientoX = 0;
-            desplazamientoY = 1;
+            serpiente.dx = 0;
+            serpiente.dy = 1;
         }
         break;
 
     case ALLEGRO_KEY_LEFT:
-        if(desplazamientoX != 1)
+        if(serpiente.dx != 1)
         {
-            desplazamientoX = -1;
-            desplazamientoY = 0;
+            serpiente.dx = -1;
+            serpiente.dy = 0;
         }
         break;
 
     case ALLEGRO_KEY_RIGHT:
-        if(desplazamientoX != -1)
+        if(serpiente.dx != -1)
         {
-            desplazamientoX = 1;
-            desplazamientoY = 0;
+            serpiente.dx = 1;
+            serpiente.dy = 0;
         }
         break;
 }
@@ -423,13 +426,13 @@ int main()
 
         if(ev.type == ALLEGRO_EVENT_TIMER)
         {
-            for(int i=tamanoSerpiente-1;i>0;i--)
+            for(int i=serpiente.tamano-1;i>0;i--)
             {
-                serpiente[i] = serpiente[i-1];
+                serpiente.segmentos[i] = serpiente.segmentos[i-1];
             }
 
-            serpiente[0].x += desplazamientoX;
-            serpiente[0].y += desplazamientoY;
+            serpiente.segmentos[0].x += serpiente.dx;
+            serpiente.segmentos[0].y += serpiente.dy;
 
             if(verificarLimites())
             {
@@ -457,13 +460,13 @@ int main()
 
             for(int i=0; i<MAX_COMIDAS; i++)
             {
-                if(comidas[i].activa && serpiente[0].x == comidas[i].x && serpiente[0].y == comidas[i].y)
+                if(comidas[i].activa && serpiente.segmentos[0].x == comidas[i].x && serpiente.segmentos[0].y == comidas[i].y)
                 {
                     comidas[i].activa = false;
 
-                    tamanoSerpiente++;
+                    serpiente.tamano++;
 
-                    serpiente[tamanoSerpiente] = serpiente[tamanoSerpiente-1];
+                    serpiente.segmentos[serpiente.tamano] = serpiente.segmentos[serpiente.tamano-1];
 
                     juego.puntaje++;
 
@@ -509,18 +512,18 @@ int main()
                 }
             }
 
-           if(mapa[serpiente[0].y][serpiente[0].x] == 'L')
+           if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'L')
             {
                 juego.tieneLlave = 1;
 
-                mapa[serpiente[0].y][serpiente[0].x] = ' ';
+                mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] = ' ';
 
                 strcpy(juego.mensaje, "Llave obtenida");
 
                 juego.tiempoMensaje = 24;
             }
 
-            if(mapa[serpiente[0].y][serpiente[0].x] == 'P' && juego.tieneLlave)
+            if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && juego.tieneLlave)
             {
                 juego.nivel = 2;
 
@@ -550,14 +553,25 @@ int main()
                         break;
                 }
 
-                tamanoSerpiente = 3;
+                fase.numero = 1;
+                fase.comidasPorFase = 3;
+                fase.comidasComidas = 0;
+
+                for(int i=0; i<MAX_COMIDAS; i++)
+                {
+                    comidas[i].activa = false;
+                }
+
+                generarComidas(fase.comidasPorFase);
+
+                serpiente.tamano = 3;
                 juego.puntaje = 0;
                 juego.tieneLlave = 0;
                 juego.tiempo = 0;
                 contadorTiempo = 0;
 
-                desplazamientoX = 1;
-                desplazamientoY = 0;
+                serpiente.dx = 1;
+                serpiente.dy = 0;
 
                 sprintf(juego.mensaje, "Bienvenido a %s", juego.nombreNivel);
                 juego.tiempoMensaje = 24;
@@ -698,17 +712,17 @@ for(int i=0; i<MAX_COMIDAS; i++)
     }
 }
 
-for(int i=0; i<tamanoSerpiente; i++)
+for(int i=0; i<serpiente.tamano; i++)
 {
     if(i == 0)
     {
         ALLEGRO_BITMAP *cabeza;
 
-        if(desplazamientoX == 1)
+        if(serpiente.dx == 1)
             cabeza = cabezaDerecha;
-        else if(desplazamientoX == -1)
+        else if(serpiente.dx == -1)
             cabeza = cabezaIzquierda;
-        else if(desplazamientoY == -1)
+        else if(serpiente.dy == -1)
             cabeza = cabezaArriba;
         else
             cabeza = cabezaAbajo;
@@ -719,31 +733,31 @@ for(int i=0; i<tamanoSerpiente; i++)
             0,
             64,
             64,
-            serpiente[i].x * CELL,
-            serpiente[i].y * CELL,
+            serpiente.segmentos[i].x * CELL,
+            serpiente.segmentos[i].y * CELL,
             CELL,
             CELL,
             0);
     }
-    else if(i == tamanoSerpiente - 1)
+    else if(i == serpiente.tamano - 1)
     {
         ALLEGRO_BITMAP *cola;
 
-        if(tamanoSerpiente == 1)
+        if(serpiente.tamano == 1)
             cola = colaAbajo;
         else
         {
-        int dx = serpiente[i].x - serpiente[i-1].x;
-        int dy = serpiente[i].y - serpiente[i-1].y;
+        int dx = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
+        int dy = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
 
         if(dx == 0 && dy == 0)
         {
             
-            if(desplazamientoX == 1)
+            if(serpiente.dx == 1)
                 cola = colaDerecha;
-            else if(desplazamientoX == -1)
+            else if(serpiente.dx == -1)
                 cola = colaIzquierda;
-            else if(desplazamientoY == 1)
+            else if(serpiente.dy == 1)
                 cola = colaAbajo;
             else
                 cola = colaArriba;
@@ -770,19 +784,19 @@ for(int i=0; i<tamanoSerpiente; i++)
             cola,
             0,0,
             64,64,
-            serpiente[i].x*CELL,
-            serpiente[i].y*CELL,
+            serpiente.segmentos[i].x*CELL,
+            serpiente.segmentos[i].y*CELL,
             CELL,
             CELL,
             0);
     }
     else
     {
-        int dx1 = serpiente[i].x - serpiente[i-1].x;
-        int dy1 = serpiente[i].y - serpiente[i-1].y;
+        int dx1 = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
+        int dy1 = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
 
-        int dx2 = serpiente[i+1].x - serpiente[i].x;
-        int dy2 = serpiente[i+1].y - serpiente[i].y;
+        int dx2 = serpiente.segmentos[i+1].x - serpiente.segmentos[i].x;
+        int dy2 = serpiente.segmentos[i+1].y - serpiente.segmentos[i].y;
 
         ALLEGRO_BITMAP *imagen = cuerpoHorizontal;
 
@@ -827,13 +841,15 @@ for(int i=0; i<tamanoSerpiente; i++)
             0,
             64,
             64,
-            serpiente[i].x*CELL,
-            serpiente[i].y*CELL,
+            serpiente.segmentos[i].x*CELL,
+            serpiente.segmentos[i].y*CELL,
             CELL,
             CELL,
             0);
     }
-}           //Nivel en Pantalla
+}           
+            //Nivel en Pantalla
+
                 char textoNivel[50];
 
                 sprintf(textoNivel,
@@ -844,10 +860,12 @@ for(int i=0; i<tamanoSerpiente; i++)
                     font,
                     al_map_rgb(255,255,255),
                     10,
-                    70,
+                    30,
                     0,
                     textoNivel);
+
             //Puntaje en Pantalla
+
                 char texto[100];
 
                 sprintf(texto,
@@ -861,34 +879,61 @@ for(int i=0; i<tamanoSerpiente; i++)
                     10,
                     0,
                     texto);
+
             //Tiempo en Pantalla
+
                 char textoTiempo[100];
 
+                int minutos = juego.tiempo / 60;
+                int segundos = juego.tiempo % 60;
+
                 sprintf(textoTiempo,
-                        "Tiempo: %d",
-                        juego.tiempo);
+                        "Tiempo: %02d:%02d",
+                        minutos,
+                        segundos);
 
                 al_draw_text(
                     font,
                     al_map_rgb(255,255,255),
                     10,
-                    50,
+                    70,
                     0,
                     textoTiempo);
-            //Comidas necesarias en Pantalla
+
+            //Llave Obtenida en Pantalla
+
+                char textoLlave[50];
+
+                sprintf(textoLlave,
+                        "Llave: %s",
+                        juego.tieneLlave ? "SI" : "NO");
+
+                al_draw_text(
+                    font,
+                    al_map_rgb(255,255,255),
+                    10,
+                    90,
+                    0,
+                    textoLlave);
+
+            //Fase y Comidas necesarias en Pantalla
+
                 char textoComidas[100];
 
                 sprintf(textoComidas,
-                        "Fase: %d/3",
-                         fase.numero);
+                        "Fase: %d/3   Comidas: %d/%d",
+                        fase.numero,
+                        fase.comidasComidas,
+                        fase.comidasPorFase);
 
                 al_draw_text(
                      font,
                       al_map_rgb(255,255,255),
                       10,
-                      30,
+                      50,
                       0,
                       textoComidas);
+
             //Llave obtenida en Pantalla
 
             if(juego.tieneLlave)
@@ -897,7 +942,7 @@ for(int i=0; i<tamanoSerpiente; i++)
                     font,
                     al_map_rgb(255,255,0),
                     10,
-                    90,
+                    110,
                     0,
                     "Llave obtenida");
             }
