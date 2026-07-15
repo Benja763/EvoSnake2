@@ -10,9 +10,12 @@
 #define WIDTH 800
 #define HEIGHT 600
 #define CELL 20
-
 #define N 30
 #define M 40
+#define MAX_COMIDAS 10
+#define MAX_FASES 3
+#define MAX_ENEMIGOS 10
+#define MAX_BALAS 30
 
 typedef struct
 {
@@ -38,11 +41,8 @@ typedef struct
     int puntaje;
     int tiempo;
     int tieneLlave;
-
     int comidasNecesarias;
     int comidasFase;
-
-
 
     int tiempoMensaje;
 
@@ -66,12 +66,37 @@ typedef struct
 typedef struct
 {
     int numero;
-    int comidasPorFase;
     int comidasComidas;
+    int comidas[MAX_FASES];
 
 } Fase;
 
-#define MAX_COMIDAS 10
+typedef struct
+{
+    float x;
+    float y;    
+
+    bool vivo;
+
+    int direccion;
+
+} Enemigo;
+
+typedef struct
+{
+    float x;
+    float y;
+
+    float dx;
+    float dy;
+
+    bool activa;
+
+} Bala;
+
+Enemigo enemigos[MAX_ENEMIGOS];
+
+Bala balas[MAX_BALAS];
 
 Comida comidas[MAX_COMIDAS];
 
@@ -108,6 +133,13 @@ int hayComida(int x, int y);
 void cargarMapa(char nombreArchivo[])
 {
     FILE *archivo = fopen(nombreArchivo, "r");
+
+    for(int i = 0; i<MAX_FASES; i++)
+    {
+        fscanf(archivo, "%d", &fase.comidas[i]);
+    }
+
+    fgetc(archivo);
 
     if(archivo == NULL)
     {
@@ -244,7 +276,6 @@ void reiniciarJuego()
     contadorTiempo = 0;
 
     fase.numero = 1;
-    fase.comidasPorFase = 3;
     fase.comidasComidas = 0;
 
     serpiente.dx = 1;
@@ -263,7 +294,7 @@ void reiniciarJuego()
 
     cargarMapa(juego.archivoNivel);
 
-    generarComidas(fase.comidasPorFase);
+    generarComidas(fase.comidas[fase.numero - 1]);
 }
 
 int haySerpiente(int x, int y)
@@ -495,13 +526,12 @@ int main()
                     if(fase.numero < 3)
                     {
                         fase.numero++;
-                        fase.comidasPorFase++;
                         fase.comidasComidas = 0;
 
                         sprintf(juego.mensaje, "Fase %d", fase.numero);
                         juego.tiempoMensaje = 24;
 
-                        generarComidas(fase.comidasPorFase);
+                        generarComidas(fase.comidas[fase.numero - 1]);
                     }
                     else
                     {
@@ -554,7 +584,6 @@ int main()
                 }
 
                 fase.numero = 1;
-                fase.comidasPorFase = 3;
                 fase.comidasComidas = 0;
 
                 for(int i=0; i<MAX_COMIDAS; i++)
@@ -562,7 +591,7 @@ int main()
                     comidas[i].activa = false;
                 }
 
-                generarComidas(fase.comidasPorFase);
+                generarComidas(fase.comidas[fase.numero - 1]);
 
                 serpiente.tamano = 3;
                 juego.puntaje = 0;
@@ -800,7 +829,7 @@ for(int i=0; i<serpiente.tamano; i++)
 
         ALLEGRO_BITMAP *imagen = cuerpoHorizontal;
 
-        // Cuerpo recto
+    // Cuerpo recto
 
     if(dy1 == 0 && dy2 == 0)
     {
@@ -813,7 +842,7 @@ for(int i=0; i<serpiente.tamano; i++)
         imagen = cuerpoVertical;
     }
 
-        // Curvas
+    // Curvas
 
         else if((dx1==1 && dy2==1) || (dy1==-1 && dx2==-1))
         {
@@ -924,7 +953,7 @@ for(int i=0; i<serpiente.tamano; i++)
                         "Fase: %d/3   Comidas: %d/%d",
                         fase.numero,
                         fase.comidasComidas,
-                        fase.comidasPorFase);
+                        fase.comidas[fase.numero - 1]);
 
                 al_draw_text(
                      font,
@@ -933,19 +962,6 @@ for(int i=0; i<serpiente.tamano; i++)
                       50,
                       0,
                       textoComidas);
-
-            //Llave obtenida en Pantalla
-
-            if(juego.tieneLlave)
-            {
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,0),
-                    10,
-                    110,
-                    0,
-                    "Llave obtenida");
-            }
 
             //Tiempo en pantalla del mensaje
 
