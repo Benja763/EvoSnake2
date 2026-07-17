@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -15,7 +16,8 @@
 #define MAX_COMIDAS 10
 #define MAX_FASES 3
 #define MAX_ENEMIGOS 10
-#define MAX_BALAS 30
+#define MAX_BALAS 20
+#define FRAMES_GATO 12
 
 typedef struct
 {
@@ -74,11 +76,19 @@ typedef struct
 typedef struct
 {
     float x;
-    float y;    
+    float y;
+
+    float distanciaAnimacion;
+    
+    int dx;
+    int dy;
+
+    int frame;
+    int contadorAnimacion;
+
+    int respawn;
 
     bool vivo;
-
-    int direccion;
 
 } Enemigo;
 
@@ -109,6 +119,8 @@ Fase fase;
 
 int contadorTiempo = 0;
 
+ALLEGRO_BITMAP *gatoSprite[FRAMES_GATO];
+
 ALLEGRO_BITMAP *cabezaArriba;
 ALLEGRO_BITMAP *cabezaAbajo;
 ALLEGRO_BITMAP *cabezaIzquierda;
@@ -128,8 +140,11 @@ ALLEGRO_BITMAP *curva3;
 ALLEGRO_BITMAP *curva4;
 
 void generarComida();
+void generarEnemigo(int i);
 int haySerpiente(int x, int y);
 int hayComida(int x, int y);
+int hayEnemigo(int x, int y);
+
 void cargarMapa(char nombreArchivo[])
 {
     FILE *archivo = fopen(nombreArchivo, "r");
@@ -216,6 +231,74 @@ void generarComidas(int cantidad)
         comidas[i].activa = true;
     }
 }
+
+void generarEnemigo(int i)
+{
+    int x, y;
+
+    do
+    {
+        x = rand() % M;
+        y = rand() % N;
+
+    } while(mapa[y][x] != ' ' ||
+            haySerpiente(x, y) ||
+            hayComida(x, y) ||
+            hayEnemigo(x, y));
+
+    enemigos[i].x = x * CELL;
+    enemigos[i].y = y * CELL;
+
+    // Dirección aleatoria
+    int dir = rand() % 4;
+
+    switch(dir)
+    {
+        case 0:
+            enemigos[i].dx = 4;
+            enemigos[i].dy = 0;
+            break;
+
+        case 1:
+            enemigos[i].dx = -4;
+            enemigos[i].dy = 0;
+            break;
+
+        case 2:
+            enemigos[i].dx = 0;
+            enemigos[i].dy = 4;
+            break;
+
+        case 3:
+            enemigos[i].dx = 0;
+            enemigos[i].dy = -4;
+            break;
+    }
+
+    enemigos[i].frame = 0;
+    enemigos[i].contadorAnimacion = 0;
+    enemigos[i].vivo = true;
+    enemigos[i].respawn = -1;
+    enemigos[i].distanciaAnimacion = 0;
+}
+
+int hayEnemigo(int x, int y)
+{
+    for(int i = 0; i < MAX_ENEMIGOS; i++)
+    {
+        if(enemigos[i].vivo)
+        {
+            if((int)(enemigos[i].x / CELL) == x &&
+               (int)(enemigos[i].y / CELL) == y)
+            {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 int verificarColisionMuro()
 {
     if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == '#')
@@ -292,9 +375,72 @@ void reiniciarJuego()
         comidas[i].activa = false;
     }
 
+    for(int i=0; i<MAX_BALAS; i++)
+    {
+        balas[i].activa = false;
+    }
+
     cargarMapa(juego.archivoNivel);
 
     generarComidas(fase.comidas[fase.numero - 1]);
+
+    for(int i = 0; i < MAX_ENEMIGOS; i++)
+    {
+        enemigos[i].vivo = false;
+        enemigos[i].respawn = -1;
+        enemigos[i].frame = 0;
+        enemigos[i].contadorAnimacion = 0;
+    }
+
+        if(juego.nivel == 1)
+        {
+            generarEnemigo(0);
+        }
+}
+
+void disparar()
+{
+    for(int i=0; i<MAX_BALAS; i++)
+    {
+        if(!balas[i].activa)
+        {
+            balas[i].activa = true;
+
+            balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
+            balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
+
+            if(serpiente.dx == 1)
+            {
+                balas[i].dx = 8;
+                balas[i].dy = 0;
+
+                balas[i].x += CELL/2;
+            }
+            else if (serpiente.dx == -1)
+            {
+                balas[i].dx = -8;
+                balas[i].dy = 0;
+
+                balas[i].x -= CELL/2;
+            }
+            else if(serpiente.dy == 1)
+            {
+                balas[i].dx = 0;
+                balas[i].dy = 8;
+
+                balas[i].y += CELL/2;
+            }
+            else
+            {
+                balas[i].dx = 0;
+                balas[i].dy = -8;
+
+                balas[i].y -= CELL/2;
+            }
+
+            break;
+        }
+    }
 }
 
 int haySerpiente(int x, int y)
@@ -363,6 +509,21 @@ int main()
     curva3 = al_load_bitmap("Sprites/CurvaSerp3.png");
     curva4 = al_load_bitmap("Sprites/CurvaSerp4.png");
 
+    //Sprites de los enemigos
+
+    gatoSprite[0] = al_load_bitmap("Sprites/gatoderecha1.png");
+    gatoSprite[1] = al_load_bitmap("Sprites/gatoderecha2.png");
+    gatoSprite[2] = al_load_bitmap("Sprites/gatoderecha3.png");
+    gatoSprite[3] = al_load_bitmap("Sprites/gatoderecha4.png");
+    gatoSprite[4] = al_load_bitmap("Sprites/gatoderecha5.png");
+    gatoSprite[5] = al_load_bitmap("Sprites/gatoderecha6.png");
+    gatoSprite[6] = al_load_bitmap("Sprites/gatoizq1.png");
+    gatoSprite[7] = al_load_bitmap("Sprites/gatoizq2.png");
+    gatoSprite[8] = al_load_bitmap("Sprites/gatoizq3.png");
+    gatoSprite[9] = al_load_bitmap("Sprites/gatoizq4.png");
+    gatoSprite[10] = al_load_bitmap("Sprites/gatoizq5.png");
+    gatoSprite[11] = al_load_bitmap("Sprites/gatoizq6.png");
+
     //Sprites de la comida
 
     ALLEGRO_BITMAP *manzana = al_load_bitmap("Sprites/ComidaManzana.png");
@@ -419,44 +580,173 @@ int main()
         if(ev.type == ALLEGRO_EVENT_KEY_DOWN)
         {
             switch(ev.keyboard.keycode)
-{
-    case ALLEGRO_KEY_UP:
-        if(serpiente.dy != 1)
-        {
-            serpiente.dx = 0;
-            serpiente.dy = -1;
-        }
-        break;
+            {
+                case ALLEGRO_KEY_UP:
+                    if(serpiente.dy != 1)
+                    {
+                        serpiente.dx = 0;
+                        serpiente.dy = -1;
+                    }
+                    break;
 
-    case ALLEGRO_KEY_DOWN:
-        if(serpiente.dy != -1)
-        {
-            serpiente.dx = 0;
-            serpiente.dy = 1;
-        }
-        break;
+                case ALLEGRO_KEY_DOWN:
+                    if(serpiente.dy != -1)
+                    {
+                        serpiente.dx = 0;
+                        serpiente.dy = 1;
+                    }
+                    break;
 
-    case ALLEGRO_KEY_LEFT:
-        if(serpiente.dx != 1)
-        {
-            serpiente.dx = -1;
-            serpiente.dy = 0;
-        }
-        break;
+                case ALLEGRO_KEY_LEFT:
+                    if(serpiente.dx != 1)
+                    {
+                        serpiente.dx = -1;
+                        serpiente.dy = 0;
+                    }
+                    break;
 
-    case ALLEGRO_KEY_RIGHT:
-        if(serpiente.dx != -1)
-        {
-            serpiente.dx = 1;
-            serpiente.dy = 0;
-        }
-        break;
-}
+                case ALLEGRO_KEY_RIGHT:
+                    if(serpiente.dx != -1)
+                    {
+                        serpiente.dx = 1;
+                        serpiente.dy = 0;
+                    }
+                    break;
 
+                case ALLEGRO_KEY_SPACE:
+                    disparar();
+                    break;
+            }
         }
 
         if(ev.type == ALLEGRO_EVENT_TIMER)
         {
+            for(int i = 0; i < MAX_ENEMIGOS; i++)
+            {
+                if(!enemigos[i].vivo)
+                {
+                    if(enemigos[i].respawn > 0)
+                    {
+                        enemigos[i]. respawn--;
+                    }
+                    else if(enemigos[i].respawn == 0)
+                    {
+                        if(juego.nivel == 1)
+                        {
+                            generarEnemigo(i);
+                        }
+                    }
+
+                    continue;
+                }
+
+                if(enemigos[i].vivo)
+                {
+                    //Movimiento
+                 float nuevoX = enemigos[i].x + enemigos[i].dx;
+                 float nuevoY = enemigos[i].y + enemigos[i].dy;
+
+                 int columna = (nuevoX + CELL/2) / CELL;
+                 int fila = (nuevoY + CELL/2) / CELL;
+
+                 if(mapa[fila][columna] == '#')
+                 {
+                    enemigos[i].dx *= -1;
+                    enemigos[i].dy *= -1;
+                 }
+                 else
+                 {
+                    enemigos[i].x = nuevoX;
+                    enemigos[i].y = nuevoY;
+                 }
+
+                 //Posicion del gato en casillas
+                 int gatoX = (enemigos[i].x + CELL / 2) / CELL;
+                 int gatoY = (enemigos[i].y + CELL / 2) / CELL;
+
+                 //Si la cabeza de la serpiente toca al gato
+                 if(gatoX == serpiente.segmentos[0].x &&
+                    gatoY == serpiente.segmentos[0].y)
+                 {
+                    reiniciarJuego();
+                 }
+
+                    //Animacion
+
+                    enemigos[i].distanciaAnimacion +=
+                        fabs(enemigos[i].dx) + fabs(enemigos[i].dy);
+
+                    if(enemigos[i].distanciaAnimacion >= 16)
+                    {
+                        enemigos[i].distanciaAnimacion = 0;
+
+                        if(enemigos[i].dx > 0)
+                        {
+                            enemigos[i].frame++;
+
+                            if(enemigos[i].frame > 5)
+                                enemigos[i].frame = 0;
+                        }
+                        else
+                        {
+                            enemigos[i].frame++;
+
+                            if(enemigos[i].frame < 6 || enemigos[i].frame > 11)
+                                enemigos[i].frame = 6;
+                        }
+                    }
+                }
+            }
+
+            for(int i =0; i < MAX_BALAS; i++)
+            {
+                if(balas[i].activa)
+                {
+                    balas[i].x += balas[i].dx;
+                    balas[i].y += balas[i].dy;
+
+                    int columna = balas[i].x / CELL;
+                    int fila = balas[i].y / CELL;
+
+                    if(mapa[fila][columna] == '#')
+                    {
+                        balas[i].activa = false;
+                    }
+
+                    if(balas[i].x < 0 ||
+                       balas[i].x > M * CELL ||
+                       balas[i].y < 0 ||
+                       balas[i].y > N * CELL)
+                    {
+                        balas[i].activa = false;
+                    }
+                }    
+            }
+
+            for(int i = 0; i < MAX_BALAS; i++)
+            {
+                if(balas[i].activa)
+                {
+                    for(int j = 0; j < MAX_ENEMIGOS; j++)
+                    {
+                        if(enemigos[j].vivo)
+                        {
+                            float dx = balas[i].x - (enemigos[j].x + CELL/2);
+                            float dy = balas[i].y - (enemigos[j].y + CELL/2);
+
+                            if(dx*dx + dy*dy < (CELL/2)*(CELL/2))
+                            {
+                                balas[i].activa = false;
+                                enemigos[j].vivo = false;
+                                enemigos[j].respawn = 120;
+
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
             for(int i=serpiente.tamano-1;i>0;i--)
             {
                 serpiente.segmentos[i] = serpiente.segmentos[i-1];
@@ -712,6 +1002,7 @@ for(int i=0; i<N; i++)
     }
 }
 
+
 for(int i=0; i<MAX_COMIDAS; i++)
 {
     if(comidas[i].activa)
@@ -738,6 +1029,37 @@ for(int i=0; i<MAX_COMIDAS; i++)
             CELL,
             CELL,
             0);
+    }
+}
+
+for(int i = 0; i < MAX_ENEMIGOS; i++)
+{
+    if(enemigos[i].vivo)
+    {
+        al_draw_scaled_bitmap(
+            gatoSprite[enemigos[i].frame],
+            0,
+            0,
+            64,
+            64,
+            enemigos[i].x,
+            enemigos[i].y,
+            CELL,
+            CELL,
+            0
+        );
+    }
+}
+
+for(int i =0; i < MAX_BALAS; i++)
+{
+    if(balas[i].activa)
+    {
+        al_draw_filled_circle(
+            balas[i].x,
+            balas[i].y,
+            5,
+            al_map_rgb(0, 255, 0));
     }
 }
 
