@@ -18,6 +18,8 @@
 #define MAX_ENEMIGOS 10
 #define MAX_BALAS 20
 #define FRAMES_GATO 12
+#define GATO 0
+#define PERRO 1
 
 typedef struct
 {
@@ -88,6 +90,8 @@ typedef struct
 
     int respawn;
 
+    int tipo;
+
     bool vivo;
 
 } Enemigo;
@@ -122,6 +126,7 @@ Fase fase;
 int contadorTiempo = 0;
 
 ALLEGRO_BITMAP *gatoSprite[FRAMES_GATO];
+ALLEGRO_BITMAP *perroSprite[4];
 
 ALLEGRO_BITMAP *cabezaArriba;
 ALLEGRO_BITMAP *cabezaAbajo;
@@ -196,6 +201,9 @@ int main()
     curva4 = al_load_bitmap("Sprites/CurvaSerp4.png");
 
     //Sprites de los enemigos
+
+    perroSprite[0] = al_load_bitmap("Sprites/PerroArriba.png");
+    perroSprite[1] = al_load_bitmap("Sprites/PerroAbajo.png");
 
     gatoSprite[0] = al_load_bitmap("Sprites/gatoderecha1.png");
     gatoSprite[1] = al_load_bitmap("Sprites/gatoderecha2.png");
@@ -339,7 +347,14 @@ int main()
 
                  if(mapa[fila][columna] == '#')
                  {
-                    enemigos[i].dx *= -1;
+                    if(enemigos[i].tipo == GATO)
+                    {
+                        enemigos[i].dx *= -1;
+                    }
+                    else
+                    {
+                        enemigos[i].dy *= -1;
+                    }
                  }
                  else
                  {
@@ -347,18 +362,20 @@ int main()
                     enemigos[i].y = nuevoY;
                  }
 
-                 int gatoX = (enemigos[i].x + CELL / 2) / CELL;
-                 int gatoY = (enemigos[i].y + CELL / 2) / CELL;
+                 int enemigoX = (enemigos[i].x + CELL / 2) / CELL;
+                 int enemigoY = (enemigos[i].y + CELL / 2) / CELL;
 
                  // Gato Mata a la Serpiente
-                 if(gatoX == serpiente.segmentos[0].x &&
-                    gatoY == serpiente.segmentos[0].y)
+                 if(enemigoX == serpiente.segmentos[0].x &&
+                    enemigoY == serpiente.segmentos[0].y)
                  {
                     reiniciarJuego();
                  }
 
                     // Animacion
 
+                if(enemigos[i].tipo == GATO)
+                {
                     enemigos[i].distanciaAnimacion +=
                         fabs(enemigos[i].dx) + fabs(enemigos[i].dy);
 
@@ -380,9 +397,10 @@ int main()
                             if(enemigos[i].frame < 6 || enemigos[i].frame > 11)
                                 enemigos[i].frame = 6;
                         }
-                    }
+                    }        
                 }
             }
+        }
 
             for(int i =0; i < MAX_BALAS; i++)
             {
@@ -529,7 +547,7 @@ int main()
                 juego.tiempoMensaje = 24;
             }
 
-            if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && juego.tieneLlave)
+            if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'E' && juego.tieneLlave)
             {
                 juego.nivel = 2;
 
@@ -669,7 +687,7 @@ for(int i=0; i<N; i++)
 
                 break;
                 //Puerta
-            case 'P':
+            case 'E':
 
                 al_draw_scaled_bitmap(
                     puertaSprite,
@@ -722,8 +740,26 @@ for(int i = 0; i < cantidadEnemigos; i++)
 {
     if(enemigos[i].vivo)
     {
+        ALLEGRO_BITMAP *sprite;
+
+        if(enemigos[i].tipo == GATO)
+        {
+            sprite = gatoSprite[enemigos[i].frame];
+        }
+        else if(enemigos[i].tipo == PERRO)
+        {
+            if(enemigos[i].dy < 0)
+            {
+                sprite = perroSprite[0];
+            }
+            else
+            {
+                sprite = perroSprite[1];
+            }
+        }    
+
         al_draw_scaled_bitmap(
-            gatoSprite[enemigos[i].frame],
+            sprite,
             0,
             0,
             64,
@@ -1099,6 +1135,34 @@ void cargarMapa(char nombreArchivo[])
                     enemigos[cantidadEnemigos].vivo = true;
                     enemigos[cantidadEnemigos].respawn = 0;
 
+                    enemigos[cantidadEnemigos].tipo = GATO;
+
+                    cantidadEnemigos++;
+                }
+
+                mapa[i][j] = ' ';
+            }
+
+            if(mapa[i][j] == 'P')
+            {
+                if(cantidadEnemigos < MAX_ENEMIGOS)
+                {
+                    enemigos[cantidadEnemigos].x = j * CELL;
+                    enemigos[cantidadEnemigos].y = i * CELL;
+
+                    enemigos[cantidadEnemigos].dx = 0;
+                    enemigos[cantidadEnemigos].dy = 4;
+
+                    enemigos[cantidadEnemigos].frame = 0;
+                    enemigos[cantidadEnemigos].contadorAnimacion = 0;
+
+                    enemigos[cantidadEnemigos].vivo = true;
+                    enemigos[cantidadEnemigos].respawn = 0;
+
+                    enemigos[cantidadEnemigos].distanciaAnimacion = 0;
+
+                    enemigos[cantidadEnemigos].tipo = PERRO;
+
                     cantidadEnemigos++;
                 }
 
@@ -1228,7 +1292,7 @@ int verificarColisionSerpiente()
 
 int verificarPuertaBloqueada()
 {
-    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && !juego.tieneLlave)
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'E' && !juego.tieneLlave)
     {
         serpiente.segmentos[0].x -= serpiente.dx;
         serpiente.segmentos[0].y -= serpiente.dy;
