@@ -20,6 +20,8 @@
 #define FRAMES_GATO 12
 #define GATO 0
 #define PERRO 1
+#define MONO 2
+#define MAX_BANANAS 10
 
 typedef struct
 {
@@ -90,11 +92,29 @@ typedef struct
 
     int respawn;
 
+    int tiempoDisparo;
+
     int tipo;
 
     bool vivo;
 
 } Enemigo;
+
+typedef struct
+{
+    bool activa;
+
+    float x;
+    float y;
+
+    float destinoX;
+    float destinoY;
+
+    float velocidadX;
+    float velocidadY;
+
+
+} Banana;
 
 typedef struct
 {
@@ -109,6 +129,8 @@ typedef struct
 } Bala;
 
 Enemigo enemigos[MAX_ENEMIGOS];
+
+Banana bananas[MAX_BANANAS];
 
 Bala balas[MAX_BALAS];
 
@@ -125,8 +147,16 @@ Fase fase;
 
 int contadorTiempo = 0;
 
+ALLEGRO_BITMAP *bosquePiso;
+ALLEGRO_BITMAP *bosqueMuro;
+
 ALLEGRO_BITMAP *gatoSprite[FRAMES_GATO];
 ALLEGRO_BITMAP *perroSprite[4];
+
+ALLEGRO_BITMAP *monoIzquierda;
+ALLEGRO_BITMAP *monoDerecha;
+
+ALLEGRO_BITMAP *bananaMono;
 
 ALLEGRO_BITMAP *cabezaArriba;
 ALLEGRO_BITMAP *cabezaAbajo;
@@ -151,6 +181,7 @@ void reiniciarJuego();
 void generarComida();
 void generarComidas(int cantidad);
 void generarEnemigo(int i);
+void lanzarBanana();
 void disparar();
 int haySerpiente(int x, int y);
 int hayComida(int x, int y);
@@ -202,6 +233,10 @@ int main()
 
     //Sprites de los enemigos
 
+    monoIzquierda = al_load_bitmap("Sprites/monoIzquierda.png");
+    monoDerecha = al_load_bitmap("Sprites/monoDerecha.png");
+    bananaMono = al_load_bitmap("Sprites/bananaMono.png");
+
     perroSprite[0] = al_load_bitmap("Sprites/PerroArriba.png");
     perroSprite[1] = al_load_bitmap("Sprites/PerroAbajo.png");
 
@@ -225,6 +260,9 @@ int main()
     ALLEGRO_BITMAP *banana = al_load_bitmap("Sprites/ComidaBanana.png");
     ALLEGRO_BITMAP *arandano = al_load_bitmap("Sprites/ComidaArandanos.png");
     ALLEGRO_BITMAP *aji = al_load_bitmap("Sprites/ComidaAji.png");
+
+    bosquePiso = al_load_bitmap("Sprites/bosquePiso.png");
+    bosqueMuro = al_load_bitmap("Sprites/bosqueMuro.png");
 
     ALLEGRO_BITMAP *fondoPradera = al_load_bitmap("Sprites/FondoNivel1.png");
     ALLEGRO_BITMAP *arbusto = al_load_bitmap("Sprites/MurosArbustosNivel1.png");
@@ -338,7 +376,22 @@ int main()
 
                 if(enemigos[i].vivo)
                 {
-                    // Movimiento
+                    //Mono Lanza Bananas
+                    if(enemigos[i].tipo == MONO)
+                    {
+                        enemigos[i].tiempoDisparo--;
+
+                        if(enemigos[i].tiempoDisparo <=0)
+                        {
+                            lanzarBanana(i);
+
+                            enemigos[i].tiempoDisparo = 120;
+                        }
+                    }
+
+                    
+
+                    //Movimiento
                  float nuevoX = enemigos[i].x + enemigos[i].dx;
                  float nuevoY = enemigos[i].y + enemigos[i].dy;
 
@@ -401,6 +454,32 @@ int main()
                 }
             }
         }
+
+        //Movimiento de bananas
+                    for(int j = 0; j < MAX_BANANAS; j++)
+                    {
+                        if(bananas[j].activa)
+                        {
+                            bananas[j].x += bananas[j].velocidadX;
+                            bananas[j].y += bananas[j].velocidadY;
+
+                            if(fabs(bananas[j].x - bananas[j].destinoX) < 0.2 &&
+                            fabs(bananas[j].y - bananas[j].destinoY) < 0.2)
+                            {
+                                bananas[j].x = bananas[j].destinoX;
+                                bananas[j].y = bananas[j].destinoY;
+
+                                bananas[j].velocidadX = 0;
+                                bananas[j].velocidadY = 0;
+                            }
+
+                            if((int)bananas[j].x == serpiente.segmentos[0].x &&
+                               (int)bananas[j].y == serpiente.segmentos[0].y)
+                            {
+                                reiniciarJuego();
+                            }
+                        }
+                    }
 
             for(int i =0; i < MAX_BALAS; i++)
             {
@@ -623,6 +702,26 @@ int main()
                 }
             }
         }
+        else if(juego.nivel == 2)
+        {
+            for(int i=0; i<N; i++)
+            {
+                for(int j=0; j<M; j++)
+                {
+                    al_draw_scaled_bitmap(
+                        bosquePiso,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
+                }
+            }
+        }
         else
         {
             al_clear_to_color(al_map_rgb(136,231,136));
@@ -654,9 +753,22 @@ for(int i=0; i<N; i++)
                     CELL,
                     0);
             }
+            else if(juego.nivel == 2)
+            {
+                al_draw_scaled_bitmap(
+                    bosqueMuro,
+                    0,
+                    0,
+                    64,
+                    64,
+                    j*CELL,
+                    i*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
             else
             {
-
                 al_draw_filled_rectangle(
                     j*CELL,
                     i*CELL,
@@ -664,7 +776,6 @@ for(int i=0; i<N; i++)
                     i*CELL+CELL,
                     al_map_rgb(90,90,90));
             }
-
             break;
 
                 //Llave
@@ -756,7 +867,19 @@ for(int i = 0; i < cantidadEnemigos; i++)
             {
                 sprite = perroSprite[1];
             }
-        }    
+        }
+        
+        if(enemigos[i].tipo == MONO)
+        {
+            if(serpiente.dx >= 0)
+            {
+                sprite = monoDerecha;
+            }
+            else
+            {
+                sprite = monoIzquierda;
+            }
+        }
 
         al_draw_scaled_bitmap(
             sprite,
@@ -770,6 +893,33 @@ for(int i = 0; i < cantidadEnemigos; i++)
             CELL,
             0
         );
+    }
+}
+
+for(int i=0;i<MAX_BANANAS;i++)
+{
+    if(bananas[i].activa)
+    {
+        al_draw_scaled_bitmap(
+            bananaMono,
+            0,
+            0,
+            64,
+            64,
+            bananas[i].x*CELL,
+            bananas[i].y*CELL,
+            CELL,
+            CELL,
+            0);
+
+        int bananaX = bananas[i].x;
+        int bananaY = bananas[i].y;
+
+        if(bananaX == serpiente.segmentos[0].x &&
+           bananaY == serpiente.segmentos[0].y)
+        {
+                reiniciarJuego();
+        }
     }
 }
 
@@ -1168,6 +1318,34 @@ void cargarMapa(char nombreArchivo[])
 
                 mapa[i][j] = ' ';
             }
+
+            if(mapa[i][j] == 'M')
+            {
+                if(cantidadEnemigos < MAX_ENEMIGOS)
+                {
+                    enemigos[cantidadEnemigos].x = j * CELL;
+                    enemigos[cantidadEnemigos].y = i * CELL;
+
+                    enemigos[cantidadEnemigos].dx = 0;
+                    enemigos[cantidadEnemigos].dy = 0;
+
+                    enemigos[cantidadEnemigos].frame = 0;
+                    enemigos[cantidadEnemigos].contadorAnimacion = 0;
+
+                    enemigos[cantidadEnemigos].vivo = true;
+                    enemigos[cantidadEnemigos].respawn = 0;
+
+                    enemigos[cantidadEnemigos].distanciaAnimacion = 0;
+
+                    enemigos[cantidadEnemigos].tipo = MONO;
+
+                    enemigos[cantidadEnemigos].tiempoDisparo = 120;
+
+                    cantidadEnemigos++;
+                }
+
+                mapa[i][j] = ' ';
+            }
         }
 
         fgetc(archivo);
@@ -1266,6 +1444,46 @@ int hayEnemigo(int x, int y)
     return 0;
 }
 
+void lanzarBanana(int mono)
+{
+    for(int i = 0; i < MAX_BANANAS; i++)
+    {
+        if(!bananas[i].activa)
+        {
+            bananas[i].activa = true;
+
+            //Banana sale del mono
+            bananas[i].x = enemigos[mono].x / CELL;
+            bananas[i].y = enemigos[mono].y / CELL;
+
+            //Destino cabeza de la serpiente
+            bananas[i].destinoX = serpiente.segmentos[0].x;
+            bananas[i].destinoY = serpiente.segmentos[0].y;
+
+            if(serpiente.dx == 1)
+                bananas[i].destinoX += 4;
+
+            if(serpiente.dx == -1)
+                bananas[i].destinoX -= 4;
+
+            if(serpiente.dy == 1)
+                bananas[i].destinoY += 4;
+
+            if(serpiente.dy == -1)
+                bananas[i].destinoY -= 4;
+
+            //Velocidad de la banana
+            bananas[i].velocidadX =
+                (bananas[i].destinoX - bananas[i].x) / 10.0;
+
+            bananas[i].velocidadY =
+                (bananas[i].destinoY - bananas[i].y) / 10.0;
+
+            break;
+        }
+    }
+}
+
 int verificarColisionMuro()
 {
     if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == '#')
@@ -1350,6 +1568,11 @@ void reiniciarJuego()
     cargarMapa(juego.archivoNivel);
 
     generarComidas(fase.comidas[fase.numero - 1]);
+
+    for(int i = 0; i < MAX_BANANAS; i++)
+    {
+        bananas[i].activa = false;
+    }
 }
 
 void disparar()
