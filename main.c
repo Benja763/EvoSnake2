@@ -110,6 +110,8 @@ Bala balas[MAX_BALAS];
 
 Comida comidas[MAX_COMIDAS];
 
+int cantidadEnemigos = 0;
+
 char mapa[N][M];
 Serpiente serpiente;
 
@@ -139,335 +141,19 @@ ALLEGRO_BITMAP *curva2;
 ALLEGRO_BITMAP *curva3;
 ALLEGRO_BITMAP *curva4;
 
+void cargarMapa(char nombreArchivo[]);
+void reiniciarJuego();
 void generarComida();
+void generarComidas(int cantidad);
 void generarEnemigo(int i);
+void disparar();
 int haySerpiente(int x, int y);
 int hayComida(int x, int y);
 int hayEnemigo(int x, int y);
-
-void cargarMapa(char nombreArchivo[])
-{
-    FILE *archivo = fopen(nombreArchivo, "r");
-
-    for(int i = 0; i<MAX_FASES; i++)
-    {
-        fscanf(archivo, "%d", &fase.comidas[i]);
-    }
-
-    fgetc(archivo);
-
-    if(archivo == NULL)
-    {
-        printf("No se pudo abrir el archivo %s\n", nombreArchivo);
-        return;
-    }
-
-    for(int i = 0; i < N; i++)
-    {
-        for(int j = 0; j < M; j++)
-        {
-            mapa[i][j] = fgetc(archivo);
-
-            if(mapa[i][j] == 'S')
-            {
-                serpiente.segmentos[0].x = j;
-                serpiente.segmentos[0].y = i;
-
-                serpiente.segmentos[1].x = j-1;
-                serpiente.segmentos[1].y = i;
-
-                serpiente.segmentos[2].x = j-2;
-                serpiente.segmentos[2].y = i;
-
-                mapa[i][j] = ' ';
-            }
-
-            if(mapa[i][j] == 'L')
-            {
-                juego.xLlave = j;
-                juego.yLlave = i;
-
-                mapa[i][j] = ' ';
-            }
-        }
-
-        fgetc(archivo);
-    }
-
-    fclose(archivo);
-}
-
-void generarComida()
-{
-    int x, y;
-
-    do
-    {
-        x = rand() % M;
-        y = rand() % N;
-    
-    } while(mapa[y][x] != ' ' || haySerpiente(x, y));
-
-    comidas[0].x = x;
-    comidas[0].y = y;
-    comidas[0].activa = true;
-}
-
-void generarComidas(int cantidad)
-{
-    for(int i=0; i < cantidad && i < MAX_COMIDAS; i++)
-    {
-        int x, y;
-    
-        do
-        {
-            x = rand() % M;
-            y = rand() % N;
-        
-        } while(mapa[y][x] != ' ' || haySerpiente(x, y) || hayComida(x, y));
-
-        comidas[i].x = x;
-        comidas[i].y = y;
-        comidas[i].activa = true;
-    }
-}
-
-void generarEnemigo(int i)
-{
-    int x, y;
-
-    do
-    {
-        x = rand() % M;
-        y = rand() % N;
-
-    } while(mapa[y][x] != ' ' ||
-            haySerpiente(x, y) ||
-            hayComida(x, y) ||
-            hayEnemigo(x, y));
-
-    enemigos[i].x = x * CELL;
-    enemigos[i].y = y * CELL;
-
-    // Dirección aleatoria
-    int dir = rand() % 4;
-
-    switch(dir)
-    {
-        case 0:
-            enemigos[i].dx = 4;
-            enemigos[i].dy = 0;
-            break;
-
-        case 1:
-            enemigos[i].dx = -4;
-            enemigos[i].dy = 0;
-            break;
-
-        case 2:
-            enemigos[i].dx = 0;
-            enemigos[i].dy = 4;
-            break;
-
-        case 3:
-            enemigos[i].dx = 0;
-            enemigos[i].dy = -4;
-            break;
-    }
-
-    enemigos[i].frame = 0;
-    enemigos[i].contadorAnimacion = 0;
-    enemigos[i].vivo = true;
-    enemigos[i].respawn = -1;
-    enemigos[i].distanciaAnimacion = 0;
-}
-
-int hayEnemigo(int x, int y)
-{
-    for(int i = 0; i < MAX_ENEMIGOS; i++)
-    {
-        if(enemigos[i].vivo)
-        {
-            if((int)(enemigos[i].x / CELL) == x &&
-               (int)(enemigos[i].y / CELL) == y)
-            {
-                return 1;
-            }
-        }
-    }
-
-    return 0;
-}
-
-int verificarColisionMuro()
-{
-    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == '#')
-    {
-        return 1;
-    }
-
-    return 0;
-}
-
-int verificarColisionSerpiente()
-{
-    for(int i=1; i<serpiente.tamano; i++)
-    {
-        if(serpiente.segmentos[0].x == serpiente.segmentos[i].x &&
-           serpiente.segmentos[0].y == serpiente.segmentos[i].y)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-int verificarPuertaBloqueada()
-{
-    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && !juego.tieneLlave)
-    {
-        serpiente.segmentos[0].x -= serpiente.dx;
-        serpiente.segmentos[0].y -= serpiente.dy;
-
-        sprintf(juego.mensaje, "La puerta esta cerrada");
-        juego.tiempoMensaje = 24;
-
-        return 1;
-    }
-
-    return 0;
-}
-
-int verificarLimites()
-{
-    if(serpiente.segmentos[0].x < 0 || serpiente.segmentos[0].x >= M ||
-       serpiente.segmentos[0].y < 0 || serpiente.segmentos[0].y >= N)
-    {
-        return 1;
-    }
-
-    return 0;
-}
-
-void reiniciarJuego()
-{
-    serpiente.tamano = 3;
-    juego.puntaje = 0;
-    juego.tieneLlave = 0;
-    juego.tiempo = 0;
-    contadorTiempo = 0;
-
-    fase.numero = 1;
-    fase.comidasComidas = 0;
-
-    serpiente.dx = 1;
-    serpiente.dy = 0;
-
-    juego.nivel = 1;
-
-    sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
-
-    strcpy(juego.nombreNivel, "Pradera");
-
-    for(int i = 0; i < MAX_COMIDAS; i++)
-    {
-        comidas[i].activa = false;
-    }
-
-    for(int i=0; i<MAX_BALAS; i++)
-    {
-        balas[i].activa = false;
-    }
-
-    cargarMapa(juego.archivoNivel);
-
-    generarComidas(fase.comidas[fase.numero - 1]);
-
-    for(int i = 0; i < MAX_ENEMIGOS; i++)
-    {
-        enemigos[i].vivo = false;
-        enemigos[i].respawn = -1;
-        enemigos[i].frame = 0;
-        enemigos[i].contadorAnimacion = 0;
-    }
-
-        if(juego.nivel == 1)
-        {
-            generarEnemigo(0);
-        }
-}
-
-void disparar()
-{
-    for(int i=0; i<MAX_BALAS; i++)
-    {
-        if(!balas[i].activa)
-        {
-            balas[i].activa = true;
-
-            balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
-            balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
-
-            if(serpiente.dx == 1)
-            {
-                balas[i].dx = 8;
-                balas[i].dy = 0;
-
-                balas[i].x += CELL/2;
-            }
-            else if (serpiente.dx == -1)
-            {
-                balas[i].dx = -8;
-                balas[i].dy = 0;
-
-                balas[i].x -= CELL/2;
-            }
-            else if(serpiente.dy == 1)
-            {
-                balas[i].dx = 0;
-                balas[i].dy = 8;
-
-                balas[i].y += CELL/2;
-            }
-            else
-            {
-                balas[i].dx = 0;
-                balas[i].dy = -8;
-
-                balas[i].y -= CELL/2;
-            }
-
-            break;
-        }
-    }
-}
-
-int haySerpiente(int x, int y)
-{
-    for(int i=0; i<serpiente.tamano; i++)
-    {
-        if(serpiente.segmentos[i].x == x && serpiente.segmentos[i].y == y)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
-int hayComida(int x, int y)
-{
-    for(int i=0; i<MAX_COMIDAS; i++)
-    {
-        if(comidas[i].activa && comidas[i].x == x && comidas[i].y == y)
-        {
-            return 1;
-        }
-    }
-
-    return 0;
-}
+int verificarColisionMuro();
+int verificarColisionSerpiente();
+int verificarPuertaBloqueada();
+int verificarLimites();
 
 int main()
 {
@@ -539,15 +225,15 @@ int main()
     ALLEGRO_BITMAP *puertaSprite = al_load_bitmap("Sprites/PuertaSprite.png");
 
     if(!cabezaArriba || !cabezaAbajo ||
-   !cabezaIzquierda || !cabezaDerecha ||
-   !cuerpoHorizontal || !cuerpoVertical ||
-   !colaArriba || !colaAbajo ||
-   !colaIzquierda || !colaDerecha ||
-   !curva1 || !curva2 || !curva3 || !curva4)
-{
-    printf("Error cargando las imagenes\n");
-    return -1;
-}
+       !cabezaIzquierda || !cabezaDerecha ||
+       !cuerpoHorizontal || !cuerpoVertical ||
+       !colaArriba || !colaAbajo ||
+       !colaIzquierda || !colaDerecha ||
+       !curva1 || !curva2 || !curva3 || !curva4)
+    {
+        printf("Error cargando las imagenes\n");
+        return -1;
+    }
 
     al_install_keyboard();
 
@@ -621,8 +307,10 @@ int main()
 
         if(ev.type == ALLEGRO_EVENT_TIMER)
         {
-            for(int i = 0; i < MAX_ENEMIGOS; i++)
+            for(int i = 0; i < cantidadEnemigos; i++)
             {
+                // Respawn del Gato
+
                 if(!enemigos[i].vivo)
                 {
                     if(enemigos[i].respawn > 0)
@@ -642,7 +330,7 @@ int main()
 
                 if(enemigos[i].vivo)
                 {
-                    //Movimiento
+                    // Movimiento
                  float nuevoX = enemigos[i].x + enemigos[i].dx;
                  float nuevoY = enemigos[i].y + enemigos[i].dy;
 
@@ -652,7 +340,6 @@ int main()
                  if(mapa[fila][columna] == '#')
                  {
                     enemigos[i].dx *= -1;
-                    enemigos[i].dy *= -1;
                  }
                  else
                  {
@@ -660,18 +347,17 @@ int main()
                     enemigos[i].y = nuevoY;
                  }
 
-                 //Posicion del gato en casillas
                  int gatoX = (enemigos[i].x + CELL / 2) / CELL;
                  int gatoY = (enemigos[i].y + CELL / 2) / CELL;
 
-                 //Si la cabeza de la serpiente toca al gato
+                 // Gato Mata a la Serpiente
                  if(gatoX == serpiente.segmentos[0].x &&
                     gatoY == serpiente.segmentos[0].y)
                  {
                     reiniciarJuego();
                  }
 
-                    //Animacion
+                    // Animacion
 
                     enemigos[i].distanciaAnimacion +=
                         fabs(enemigos[i].dx) + fabs(enemigos[i].dy);
@@ -727,7 +413,7 @@ int main()
             {
                 if(balas[i].activa)
                 {
-                    for(int j = 0; j < MAX_ENEMIGOS; j++)
+                    for(int j = 0; j < cantidadEnemigos; j++)
                     {
                         if(enemigos[j].vivo)
                         {
@@ -1032,7 +718,7 @@ for(int i=0; i<MAX_COMIDAS; i++)
     }
 }
 
-for(int i = 0; i < MAX_ENEMIGOS; i++)
+for(int i = 0; i < cantidadEnemigos; i++)
 {
     if(enemigos[i].vivo)
     {
@@ -1254,10 +940,20 @@ for(int i=0; i<serpiente.tamano; i++)
             //Llave Obtenida en Pantalla
 
                 char textoLlave[50];
+                char estadoLlave[5];
+
+                if(juego.tieneLlave)
+                {
+                    strcpy(estadoLlave, "SI");
+                }
+                else
+                {
+                    strcpy(estadoLlave, "NO");
+                }
 
                 sprintf(textoLlave,
                         "Llave: %s",
-                        juego.tieneLlave ? "SI" : "NO");
+                        estadoLlave);
 
                 al_draw_text(
                     font,
@@ -1336,6 +1032,329 @@ for(int i=0; i<serpiente.tamano; i++)
     al_destroy_display(display);
     al_destroy_timer(timer);
     al_destroy_event_queue(queue);
+
+    return 0;
+}
+
+void cargarMapa(char nombreArchivo[])
+{
+    cantidadEnemigos = 0;
+
+    FILE *archivo = fopen(nombreArchivo, "r");
+
+    for(int i = 0; i<MAX_FASES; i++)
+    {
+        fscanf(archivo, "%d", &fase.comidas[i]);
+    }
+
+    fgetc(archivo);
+
+    if(archivo == NULL)
+    {
+        printf("No se pudo abrir el archivo %s\n", nombreArchivo);
+        return;
+    }
+
+    for(int i = 0; i < N; i++)
+    {
+        for(int j = 0; j < M; j++)
+        {
+            mapa[i][j] = fgetc(archivo);
+
+            if(mapa[i][j] == 'S')
+            {
+                serpiente.segmentos[0].x = j;
+                serpiente.segmentos[0].y = i;
+
+                serpiente.segmentos[1].x = j-1;
+                serpiente.segmentos[1].y = i;
+
+                serpiente.segmentos[2].x = j-2;
+                serpiente.segmentos[2].y = i;
+
+                mapa[i][j] = ' ';
+            }
+
+            if(mapa[i][j] == 'L')
+            {
+                juego.xLlave = j;
+                juego.yLlave = i;
+
+                mapa[i][j] = ' ';
+            }
+
+            if(mapa[i][j] == 'G')
+            {
+                if(cantidadEnemigos < MAX_ENEMIGOS)
+                {
+                    enemigos[cantidadEnemigos].x = j * CELL;
+                    enemigos[cantidadEnemigos].y = i * CELL;
+
+                    enemigos[cantidadEnemigos].dx = 4;
+                    enemigos[cantidadEnemigos].dy = 0;
+
+                    enemigos[cantidadEnemigos].frame = 0;
+                    enemigos[cantidadEnemigos].contadorAnimacion = 0;
+
+                    enemigos[cantidadEnemigos].vivo = true;
+                    enemigos[cantidadEnemigos].respawn = 0;
+
+                    cantidadEnemigos++;
+                }
+
+                mapa[i][j] = ' ';
+            }
+        }
+
+        fgetc(archivo);
+    }
+
+    fclose(archivo);
+}
+
+void generarComida()
+{
+    int x, y;
+
+    do
+    {
+        x = rand() % M;
+        y = rand() % N;
+    
+    } while(mapa[y][x] != ' ' || haySerpiente(x, y));
+
+    comidas[0].x = x;
+    comidas[0].y = y;
+    comidas[0].activa = true;
+}
+
+void generarComidas(int cantidad)
+{
+    for(int i=0; i < cantidad && i < MAX_COMIDAS; i++)
+    {
+        int x, y;
+    
+        do
+        {
+            x = rand() % M;
+            y = rand() % N;
+        
+        } while(mapa[y][x] != ' ' || haySerpiente(x, y) || hayComida(x, y));
+
+        comidas[i].x = x;
+        comidas[i].y = y;
+        comidas[i].activa = true;
+    }
+}
+
+void generarEnemigo(int i)
+{
+    int x, y;
+
+    do
+    {
+        x = rand() % M;
+        y = rand() % N;
+
+    } while(mapa[y][x] != ' ' ||
+            haySerpiente(x, y) ||
+            hayComida(x, y) ||
+            hayEnemigo(x, y));
+
+    enemigos[i].x = x * CELL;
+    enemigos[i].y = y * CELL;
+
+    // Dirección
+    int dir = rand() % 2;
+
+    if(dir == 0)
+    {
+        enemigos[i].dx = 4;
+        enemigos[i].dy = 0;
+    }
+    else
+    {
+        enemigos[i].dx = -4;
+        enemigos[i].dy = 0;
+    }
+
+    enemigos[i].frame = 0;
+    enemigos[i].contadorAnimacion = 0;
+    enemigos[i].vivo = true;
+    enemigos[i].respawn = -1;
+    enemigos[i].distanciaAnimacion = 0;
+}
+
+int hayEnemigo(int x, int y)
+{
+    for(int i = 0; i < cantidadEnemigos; i++)
+    {
+        if(enemigos[i].vivo)
+        {
+            if((int)(enemigos[i].x / CELL) == x &&
+               (int)(enemigos[i].y / CELL) == y)
+            {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+int verificarColisionMuro()
+{
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == '#')
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+int verificarColisionSerpiente()
+{
+    for(int i=1; i<serpiente.tamano; i++)
+    {
+        if(serpiente.segmentos[0].x == serpiente.segmentos[i].x &&
+           serpiente.segmentos[0].y == serpiente.segmentos[i].y)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int verificarPuertaBloqueada()
+{
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'P' && !juego.tieneLlave)
+    {
+        serpiente.segmentos[0].x -= serpiente.dx;
+        serpiente.segmentos[0].y -= serpiente.dy;
+
+        sprintf(juego.mensaje, "La puerta esta cerrada");
+        juego.tiempoMensaje = 24;
+
+        return 1;
+    }
+
+    return 0;
+}
+
+int verificarLimites()
+{
+    if(serpiente.segmentos[0].x < 0 || serpiente.segmentos[0].x >= M ||
+       serpiente.segmentos[0].y < 0 || serpiente.segmentos[0].y >= N)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+void reiniciarJuego()
+{
+    serpiente.tamano = 3;
+    juego.puntaje = 0;
+    juego.tieneLlave = 0;
+    juego.tiempo = 0;
+    contadorTiempo = 0;
+
+    fase.numero = 1;
+    fase.comidasComidas = 0;
+
+    serpiente.dx = 1;
+    serpiente.dy = 0;
+
+    juego.nivel = 1;
+
+    sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
+
+    strcpy(juego.nombreNivel, "Pradera");
+
+    for(int i = 0; i < MAX_COMIDAS; i++)
+    {
+        comidas[i].activa = false;
+    }
+
+    for(int i=0; i<MAX_BALAS; i++)
+    {
+        balas[i].activa = false;
+    }
+
+    cargarMapa(juego.archivoNivel);
+
+    generarComidas(fase.comidas[fase.numero - 1]);
+}
+
+void disparar()
+{
+    for(int i=0; i<MAX_BALAS; i++)
+    {
+        if(!balas[i].activa)
+        {
+            balas[i].activa = true;
+
+            balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
+            balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
+
+            if(serpiente.dx == 1)
+            {
+                balas[i].dx = 8;
+                balas[i].dy = 0;
+
+                balas[i].x += CELL/2;
+            }
+            else if (serpiente.dx == -1)
+            {
+                balas[i].dx = -8;
+                balas[i].dy = 0;
+
+                balas[i].x -= CELL/2;
+            }
+            else if(serpiente.dy == 1)
+            {
+                balas[i].dx = 0;
+                balas[i].dy = 8;
+
+                balas[i].y += CELL/2;
+            }
+            else
+            {
+                balas[i].dx = 0;
+                balas[i].dy = -8;
+
+                balas[i].y -= CELL/2;
+            }
+
+            break;
+        }
+    }
+}
+
+int haySerpiente(int x, int y)
+{
+    for(int i=0; i<serpiente.tamano; i++)
+    {
+        if(serpiente.segmentos[i].x == x && serpiente.segmentos[i].y == y)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int hayComida(int x, int y)
+{
+    for(int i=0; i<MAX_COMIDAS; i++)
+    {
+        if(comidas[i].activa && comidas[i].x == x && comidas[i].y == y)
+        {
+            return 1;
+        }
+    }
 
     return 0;
 }
