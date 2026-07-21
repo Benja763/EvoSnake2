@@ -16,7 +16,7 @@
 #define MAX_COMIDAS 10
 #define MAX_FASES 3
 #define MAX_ENEMIGOS 10
-#define MAX_BALAS 20
+#define MAX_BALAS 5
 #define FRAMES_GATO 12
 #define GATO 0
 #define PERRO 1
@@ -635,6 +635,11 @@ int main()
 
                 cargarMapa(juego.archivoNivel);
 
+                for(int i = 0; i < MAX_BANANAS; i++)
+                {
+                    bananas[i].activa = false;
+                }
+
                 switch(juego.nivel)
                 {
                     case 1:
@@ -871,14 +876,7 @@ for(int i = 0; i < cantidadEnemigos; i++)
         
         if(enemigos[i].tipo == MONO)
         {
-            if(serpiente.dx >= 0)
-            {
-                sprite = monoDerecha;
-            }
-            else
-            {
-                sprite = monoIzquierda;
-            }
+            sprite = monoDerecha;
         }
 
         al_draw_scaled_bitmap(
@@ -1406,18 +1404,40 @@ void generarEnemigo(int i)
     enemigos[i].x = x * CELL;
     enemigos[i].y = y * CELL;
 
-    // Dirección
     int dir = rand() % 2;
 
-    if(dir == 0)
+    if(enemigos[i].tipo == GATO)
     {
-        enemigos[i].dx = 4;
-        enemigos[i].dy = 0;
+        if(dir == 0)
+        {
+            enemigos[i].dx = 4;
+            enemigos[i].dy = 0;
+        }
+        else
+        {
+            enemigos[i].dx = -4;
+            enemigos[i].dy = 0;
+        }
     }
-    else
+    else if(enemigos[i].tipo == PERRO)
     {
-        enemigos[i].dx = -4;
+        if(dir == 0)
+        {
+            enemigos[i].dx = 0;
+            enemigos[i].dy = 4;
+        }
+        else
+        {
+            enemigos[i].dx = 0;
+            enemigos[i].dy = -4;
+        }
+    }
+    else if(enemigos[i].tipo == MONO)
+    {
+        enemigos[i].dx = 0;
         enemigos[i].dy = 0;
+
+        enemigos[i].tiempoDisparo = 120;
     }
 
     enemigos[i].frame = 0;
