@@ -22,6 +22,7 @@
 #define PERRO 1
 #define MONO 2
 #define MAX_BANANAS 10
+#define MAX_RANKING 10
 
 typedef struct
 {
@@ -39,6 +40,10 @@ typedef struct
     int dx;
     int dy;
 
+    //Aca poner el arreglo de balas
+    //Que tenga una maxima cantidad de balas
+    //Las balas de la serpienten deben tener un rango
+
 } Serpiente;
 
 typedef struct
@@ -55,11 +60,19 @@ typedef struct
     char mensaje[100];
     char archivoNivel[30];
     char nombreNivel[30];
+    
 
     int xLlave;
     int yLlave;
 
 } Juego;
+
+typedef struct
+{
+    char nombre[20];
+    int dato;
+
+} Ranking;
 
 typedef struct
 {
@@ -100,6 +113,7 @@ typedef struct
 
 } Enemigo;
 
+//Modificar y generar una sola struct de balas, agregar un tipo bala
 typedef struct
 {
     bool activa;
@@ -112,7 +126,6 @@ typedef struct
 
     float velocidadX;
     float velocidadY;
-
 
 } Banana;
 
@@ -127,6 +140,12 @@ typedef struct
     bool activa;
 
 } Bala;
+
+Ranking rankingSegmentos[MAX_RANKING];
+Ranking rankingTiempo[MAX_RANKING];
+
+int cantidadRankingSegmentos = 0;
+int cantidadRankingTiempo = 0;
 
 Enemigo enemigos[MAX_ENEMIGOS];
 
@@ -177,6 +196,10 @@ ALLEGRO_BITMAP *curva3;
 ALLEGRO_BITMAP *curva4;
 
 void cargarMapa(char nombreArchivo[]);
+void cargarRankingSegmentos();
+void guardarRankingSegmentos();
+void cargarRankingTiempo();
+void guardarRankingTiempo();
 void reiniciarJuego();
 void generarComida();
 void generarComidas(int cantidad);
@@ -355,7 +378,7 @@ int main()
         {
             for(int i = 0; i < cantidadEnemigos; i++)
             {
-                // Respawn del Gato
+                //Respawn del Gato
 
                 if(!enemigos[i].vivo)
                 {
@@ -387,9 +410,7 @@ int main()
 
                             enemigos[i].tiempoDisparo = 120;
                         }
-                    }
-
-                    
+                    } 
 
                     //Movimiento
                  float nuevoX = enemigos[i].x + enemigos[i].dx;
@@ -418,14 +439,14 @@ int main()
                  int enemigoX = (enemigos[i].x + CELL / 2) / CELL;
                  int enemigoY = (enemigos[i].y + CELL / 2) / CELL;
 
-                 // Gato Mata a la Serpiente
+                 //Enemigo Mata a la Serpiente
                  if(enemigoX == serpiente.segmentos[0].x &&
                     enemigoY == serpiente.segmentos[0].y)
                  {
                     reiniciarJuego();
                  }
 
-                    // Animacion
+                    //Animacion
 
                 if(enemigos[i].tipo == GATO)
                 {
@@ -913,10 +934,23 @@ for(int i=0;i<MAX_BANANAS;i++)
         int bananaX = bananas[i].x;
         int bananaY = bananas[i].y;
 
-        if(bananaX == serpiente.segmentos[0].x &&
-           bananaY == serpiente.segmentos[0].y)
+        for(int j = 0; j < serpiente.tamano; j++)
         {
+
+            if(bananaX == serpiente.segmentos[j].x &&
+               bananaY == serpiente.segmentos[j].y)
+            {
+                if(serpiente.tamano > 2)
+                {
+                    serpiente.tamano--;
+                }
+                else
+                {
                 reiniciarJuego();
+                }
+
+                bananas[i].activa = false;
+            }
         }
     }
 }
@@ -1347,6 +1381,87 @@ void cargarMapa(char nombreArchivo[])
         }
 
         fgetc(archivo);
+    }
+
+    fclose(archivo);
+}
+
+void cargarRankingSegmentos()
+{
+    FILE *archivo = fopen("rankingSegmentos.txt","r");
+
+    if(archivo == NULL)
+        return;
+
+    cantidadRankingSegmentos = 0;
+
+    while(fscanf(archivo,"%s %d",
+        rankingSegmentos[cantidadRankingSegmentos].nombre,
+        &rankingSegmentos[cantidadRankingSegmentos].dato) == 2)
+    {
+        cantidadRankingSegmentos++;
+
+        if(cantidadRankingSegmentos >= MAX_RANKING)
+            break;
+    }
+
+    fclose(archivo);
+}
+
+void cargarRankingTiempo()
+{
+    FILE *archivo = fopen("rankingTiempo.txt","r");
+
+    if(archivo == NULL)
+        return;
+
+    cantidadRankingTiempo = 0;
+
+    while(fscanf(archivo,"%s %d",
+        rankingTiempo[cantidadRankingTiempo].nombre,
+        &rankingTiempo[cantidadRankingTiempo].dato) == 2)
+    {
+        cantidadRankingTiempo++;
+
+        if(cantidadRankingTiempo >= MAX_RANKING)
+            break;
+    }
+
+    fclose(archivo);
+}
+
+void guardarRankingSegmentos()
+{
+    FILE *archivo = fopen("rankingSegmentos.txt","w");
+
+    if(archivo == NULL)
+        return;
+
+    for(int i=0;i<cantidadRankingSegmentos;i++)
+    {
+        fprintf(archivo,"%s %d\n",
+                rankingSegmentos[i].nombre,
+                rankingSegmentos[i].dato);
+    }
+
+    fclose(archivo);
+}
+
+void guardarRankingTiempo()
+{
+    FILE *archivo = fopen("rankingTiempo.txt", "w");
+
+    if(archivo == NULL)
+    {
+        return;
+    }
+
+    for(int i = 0; i < cantidadRankingTiempo; i++)
+    {
+        fprintf(archivo,
+                "%s %d\n",
+                rankingTiempo[i].nombre,
+                rankingTiempo[i].dato);
     }
 
     fclose(archivo);
