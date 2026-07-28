@@ -157,12 +157,27 @@ typedef struct
 
 typedef struct
 {
-    //Niveles
+        //Niveles
+
+    //Nivel 1
     ALLEGRO_BITMAP *fondoPradera;
     ALLEGRO_BITMAP *arbusto;
 
+    //Nivel 2
     ALLEGRO_BITMAP *bosquePiso;
     ALLEGRO_BITMAP *bosqueMuro;
+
+    //Nivel 3
+    ALLEGRO_BITMAP *desiertoPiso;
+    ALLEGRO_BITMAP *desiertoMuro;
+
+    //Nivel 4
+    ALLEGRO_BITMAP *icebergPiso;
+    ALLEGRO_BITMAP *icebergMuro;
+
+    //Nivel 5
+    ALLEGRO_BITMAP *volcanPiso;
+    ALLEGRO_BITMAP *volcanMuro;
 
     //Comidas
     ALLEGRO_BITMAP *frutas[5];
@@ -771,7 +786,17 @@ void actualizarJuego()
 
     if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'E' && juego.tieneLlave)
     {
-        juego.nivel = 2;
+        if(juego.nivel < 5)
+        {
+            juego.nivel++;
+        }
+        else
+        {
+            registrarRanking();
+            juego.pantalla = 0;
+            reiniciarJuego();
+            return;
+        }
         sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
         cargarMapa(juego.archivoNivel);
 
@@ -848,31 +873,54 @@ void dibujarMenu(ALLEGRO_FONT *font)
         ALLEGRO_ALIGN_CENTER,
         "EVOSNAKE");
 
+    ALLEGRO_COLOR color;
+
+    if(juego.opcionMenu == 0)
+    {
+        color = al_map_rgb(255,255,0);
+    }
+    else
+    {
+        color = al_map_rgb(255,255,255);
+    }
+
     al_draw_text(
         font,
-        juego.opcionMenu == 0 ?
-        al_map_rgb(255,255,0) :
-        al_map_rgb(255,255,255),
+        color,
         WIDTH/2,
         200,
         ALLEGRO_ALIGN_CENTER,
         "Jugar");
 
+    if(juego.opcionMenu == 1)
+    {
+        color = al_map_rgb(255,255,0);
+    }
+    else
+    {
+        color = al_map_rgb(255,255,255);
+    }
+
     al_draw_text(
         font,
-        juego.opcionMenu == 1 ?
-        al_map_rgb(255,255,0) :
-        al_map_rgb(255,255,255),
+        color,
         WIDTH/2,
         240,
         ALLEGRO_ALIGN_CENTER,
         "Ranking");
 
+    if(juego.opcionMenu == 2)
+    {
+        color = al_map_rgb(255,255,0);
+    }
+    else
+    {
+        color = al_map_rgb(255,255,255);
+    }
+
     al_draw_text(
         font,
-        juego.opcionMenu == 2 ?
-        al_map_rgb(255,255,0) :
-        al_map_rgb(255,255,255),
+        color,
         WIDTH/2,
         280,
         ALLEGRO_ALIGN_CENTER,
@@ -977,48 +1025,74 @@ void dibujarJuego(ALLEGRO_FONT *font)
 
     if(juego.nivel == 1)
     {
-        for(int i=0; i<N; i++)
+        for(int i=0;i<N;i++)
         {
-            for(int j=0; j<M; j++)
+            for(int j=0;j<M;j++)
             {
                 al_draw_scaled_bitmap(
                     sprites.fondoPradera,
-                    0,
-                    0,
-                    64,
-                    64,
-                    j*CELL,
-                    i*CELL,
-                    CELL,
-                    CELL,
-                    0);
+                    0,0,64,64,
+                    j*CELL,i*CELL,
+                    CELL,CELL,0);
             }
         }
     }
     else if(juego.nivel == 2)
     {
-        for(int i=0; i<N; i++)
+        for(int i=0;i<N;i++)
         {
-            for(int j=0; j<M; j++)
+            for(int j=0;j<M;j++)
             {
                 al_draw_scaled_bitmap(
                     sprites.bosquePiso,
-                    0,
-                    0,
-                    64,
-                    64,
-                    j*CELL,
-                    i*CELL,
-                    CELL,
-                    CELL,
-                    0);
+                    0,0,64,64,
+                    j*CELL,i*CELL,
+                    CELL,CELL,0);
             }
         }
     }
-    else
+    else if(juego.nivel == 3)
     {
-        al_clear_to_color(al_map_rgb(136,231,136));
-    }              
+        for(int i=0;i<N;i++)
+        {
+            for(int j=0;j<M;j++)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.desiertoPiso,
+                    0,0,64,64,
+                    j*CELL,i*CELL,
+                    CELL,CELL,0);
+            }
+        }
+    }
+    else if(juego.nivel == 4)
+    {
+        for(int i=0;i<N;i++)
+        {
+            for(int j=0;j<M;j++)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.icebergPiso,
+                    0,0,64,64,
+                    j*CELL,i*CELL,
+                    CELL,CELL,0);
+            }
+        }
+    }
+    else if(juego.nivel == 5)
+    {
+        for(int i=0;i<N;i++)
+        {
+            for(int j=0;j<M;j++)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.volcanPiso,
+                    0,0,64,64,
+                    j*CELL,i*CELL,
+                    CELL,CELL,0);
+            }
+        }
+    }            
 
     for(int i=0; i<N; i++)
     {
@@ -1060,14 +1134,47 @@ void dibujarJuego(ALLEGRO_FONT *font)
                         CELL,
                         0);
                 }
-                else
+                else if(juego.nivel == 3)
                 {
-                    al_draw_filled_rectangle(
+                    al_draw_scaled_bitmap(
+                        sprites.desiertoMuro,
+                        0,
+                        0,
+                        64,
+                        64,
                         j*CELL,
                         i*CELL,
-                        j*CELL+CELL,
-                        i*CELL+CELL,
-                        al_map_rgb(90,90,90));
+                        CELL,
+                        CELL,
+                        0);
+                }
+                else if(juego.nivel == 4)
+                {
+                    al_draw_scaled_bitmap(
+                        sprites.icebergMuro,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
+                }
+                else if(juego.nivel == 5)
+                {
+                    al_draw_scaled_bitmap(
+                        sprites.volcanMuro,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
                 }
                 break;
 
@@ -1635,13 +1742,27 @@ void cargarSprites()
     sprites.frutas[3] = al_load_bitmap("Sprites/ComidaArandanos.png");
     sprites.frutas[4] = al_load_bitmap("Sprites/ComidaAji.png");
 
-    //Niveles
+        //Niveles
 
+    //Nivel 1
+    sprites.fondoPradera = al_load_bitmap("Sprites/FondoNivel1.png");
+    sprites.arbusto = al_load_bitmap("Sprites/MurosArbustosNivel1.png");
+
+    //Nivel 2
     sprites.bosquePiso = al_load_bitmap("Sprites/bosquePiso.png");
     sprites.bosqueMuro = al_load_bitmap("Sprites/bosqueMuro.png");
 
-    sprites.fondoPradera = al_load_bitmap("Sprites/FondoNivel1.png");
-    sprites.arbusto = al_load_bitmap("Sprites/MurosArbustosNivel1.png");
+    //Nivel 3
+    sprites.desiertoPiso = al_load_bitmap("Sprites/desiertoPiso.png");
+    sprites.desiertoMuro = al_load_bitmap("Sprites/desiertoMuro.png");
+
+    //Nivel 4
+    sprites.icebergPiso = al_load_bitmap("Sprites/icebergPiso.png");
+    sprites.icebergMuro = al_load_bitmap("Sprites/icebergMuro.png");
+
+    //Nivel 5
+    sprites.volcanPiso = al_load_bitmap("Sprites/volcanPiso.png");
+    sprites.volcanMuro = al_load_bitmap("Sprites/volcanMuro.png");
 
     //Comprobacion
 
@@ -1666,7 +1787,13 @@ void cargarSprites()
        !sprites.curva1 ||
        !sprites.curva2 ||
        !sprites.curva3 ||
-       !sprites.curva4)
+       !sprites.curva4 ||
+       !sprites.desiertoPiso ||
+       !sprites.desiertoMuro ||
+       !sprites.icebergPiso ||
+       !sprites.icebergMuro ||
+       !sprites.volcanPiso ||
+       !sprites.volcanMuro)
     {
         printf("Error cargando los sprites.\n");
         exit(EXIT_FAILURE);
@@ -1736,11 +1863,20 @@ void destruirSprites()
     for(int i = 0; i < 5; i++)
         al_destroy_bitmap(sprites.frutas[i]);
 
+    al_destroy_bitmap(sprites.fondoPradera);
+    al_destroy_bitmap(sprites.arbusto);
+
     al_destroy_bitmap(sprites.bosquePiso);
     al_destroy_bitmap(sprites.bosqueMuro);
 
-    al_destroy_bitmap(sprites.fondoPradera);
-    al_destroy_bitmap(sprites.arbusto);
+    al_destroy_bitmap(sprites.desiertoPiso);
+    al_destroy_bitmap(sprites.desiertoMuro);
+
+    al_destroy_bitmap(sprites.icebergPiso);
+    al_destroy_bitmap(sprites.icebergMuro);
+
+    al_destroy_bitmap(sprites.volcanPiso);
+    al_destroy_bitmap(sprites.volcanMuro);
 }
 
 void cargarRankingSegmentos()
