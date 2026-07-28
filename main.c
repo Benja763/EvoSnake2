@@ -21,10 +21,32 @@
 #define GATO 0
 #define PERRO 1
 #define MONO 2
-#define MAX_BANANAS 10
 #define MAX_RANKING 10
 #define BALA_SERPIENTE 1
 #define BALA_MONO 2
+
+typedef struct
+{
+    float x;
+    float y;
+
+    float dx;
+    float dy;
+
+    float velocidadX;
+    float velocidadY;
+
+    float destinoX;
+    float destinoY;
+
+    float distancia;
+    float rango;
+
+    int tipo;
+
+    bool activa;
+
+} Bala;
 
 typedef struct
 {
@@ -41,6 +63,8 @@ typedef struct
 
     int dx;
     int dy;
+
+    Bala balas[MAX_BALAS];
 
     //Aca poner el arreglo de balas
     //Que tenga una maxima cantidad de balas
@@ -118,42 +142,13 @@ typedef struct
 
     int tipo;
 
+    Bala balas[MAX_BALAS];
+
     bool vivo;
 
 } Enemigo;
 
 //Modificar y generar una sola struct de balas, agregar un tipo bala
-typedef struct
-{
-    bool activa;
-
-    float x;
-    float y;
-
-    float destinoX;
-    float destinoY;
-
-    float velocidadX;
-    float velocidadY;
-
-} Banana;
-
-typedef struct
-{
-    float x;
-    float y;
-
-    float dx;
-    float dy;
-
-    float destinoX;
-    float destinoY;
-
-    int tipo;
-
-    bool activa;
-
-} Bala;
 
 typedef struct
 {
@@ -226,8 +221,6 @@ Fase fase;
 Sprites sprites;
 
 Enemigo enemigos[MAX_ENEMIGOS];
-Banana bananas[MAX_BANANAS];
-Bala balas[MAX_BALAS];
 Comida comidas[MAX_COMIDAS];
 
 Ranking rankingSegmentos[MAX_RANKING];
@@ -592,43 +585,46 @@ void actualizarJuego()
     }
 
     //Movimiento de bananas
-    for(int j = 0; j < MAX_BANANAS; j++)
+    for(int i = 0; i < cantidadEnemigos; i++)
     {
-        if(bananas[j].activa)
+        for(int j = 0; j < MAX_BALAS; j++)
         {
-            bananas[j].x += bananas[j].velocidadX;
-            bananas[j].y += bananas[j].velocidadY;
-
-            if(fabs(bananas[j].x - bananas[j].destinoX) < 0.2 &&
-               fabs(bananas[j].y - bananas[j].destinoY) < 0.2)
+            if(enemigos[i].balas[j].activa)
             {
-                bananas[j].x = bananas[j].destinoX;
-                bananas[j].y = bananas[j].destinoY;
+                enemigos[i].balas[j].x += enemigos[i].balas[j].velocidadX;
+                enemigos[i].balas[j].y += enemigos[i].balas[j].velocidadY;
 
-                bananas[j].velocidadX = 0;
-                bananas[j].velocidadY = 0;
-            }
-
-            int bananaX = (int)bananas[j].x;
-            int bananaY = (int)bananas[j].y;
-
-            for (int k = 0; k < serpiente.tamano; k++)
-            {
-                if(bananaX == serpiente.segmentos[k].x &&
-                   bananaY == serpiente.segmentos[k].y)
+                if(fabs(enemigos[i].balas[j].x - enemigos[i].balas[j].destinoX) < 0.2 &&
+                   fabs(enemigos[i].balas[j].y - enemigos[i].balas[j].destinoY) < 0.2)
                 {
-                    if(serpiente.tamano > 2)
-                    {
-                        serpiente.tamano--;
-                    }
-                    else
-                    {
-                        registrarRanking();
-                        reiniciarJuego();
-                    }
+                    enemigos[i].balas[j].x = enemigos[i].balas[j].destinoX;
+                    enemigos[i].balas[j].y = enemigos[i].balas[j].destinoY;
 
-                    bananas[j].activa = false;
-                    break;
+                    enemigos[i].balas[j].velocidadX = 0;
+                    enemigos[i].balas[j].velocidadY = 0;
+                }
+
+                int bananaX = (int)enemigos[i].balas[j].x;
+                int bananaY = (int)enemigos[i].balas[j].y;
+
+                for (int k = 0; k < serpiente.tamano; k++)
+                {
+                    if(bananaX == serpiente.segmentos[k].x &&
+                       bananaY == serpiente.segmentos[k].y)
+                    {
+                        if(serpiente.tamano > 2)
+                        {
+                            serpiente.tamano--;
+                        }
+                        else
+                        {
+                            registrarRanking();
+                            reiniciarJuego();
+                        }
+
+                        enemigos[i].balas[j].activa = false;
+                        break;
+                    }
                 }
             }
         }
@@ -636,50 +632,58 @@ void actualizarJuego()
 
     for(int i =0; i < MAX_BALAS; i++)
     {
-        if(balas[i].activa)
+        if(serpiente.balas[i].activa)
         {
-            balas[i].x += balas[i].dx;
-            balas[i].y += balas[i].dy;
+            serpiente.balas[i].x += serpiente.balas[i].dx;
+            serpiente.balas[i].y += serpiente.balas[i].dy;
 
-            int columna = balas[i].x / CELL;
-            int fila = balas[i].y / CELL;
+            serpiente.balas[i].distancia++;
+
+            if(serpiente.balas[i].distancia >= serpiente.balas[i].rango)
+            {
+                serpiente.balas[i].activa = false;
+                continue;
+            }
+
+            int columna = serpiente.balas[i].x / CELL;
+            int fila = serpiente.balas[i].y / CELL;
 
             if(columna < 0 || columna >= M ||
                fila < 0 || fila >= N)
             {
-                balas[i].activa = false;
+                serpiente.balas[i].activa = false;
                 continue;
             }
 
             if(mapa[fila][columna] == '#')
             {
-                balas[i].activa = false;
+                serpiente.balas[i].activa = false;
             }
 
-            if(balas[i].x < 0 ||
-               balas[i].x > M * CELL ||
-               balas[i].y < 0 ||
-               balas[i].y > N * CELL)
+            if(serpiente.balas[i].x < 0 ||
+               serpiente.balas[i].x > M * CELL ||
+               serpiente.balas[i].y < 0 ||
+               serpiente.balas[i].y > N * CELL)
             {
-                balas[i].activa = false;
+                serpiente.balas[i].activa = false;
             }
         }    
     }
 
     for(int i = 0; i < MAX_BALAS; i++)
     {
-        if(balas[i].activa)
+        if(serpiente.balas[i].activa)
         {
             for(int j = 0; j < cantidadEnemigos; j++)
             {
                 if(enemigos[j].vivo)
                 {
-                    float dx = balas[i].x - (enemigos[j].x + CELL/2);
-                    float dy = balas[i].y - (enemigos[j].y + CELL/2);
+                    float dx = serpiente.balas[i].x - (enemigos[j].x + CELL/2);
+                    float dy = serpiente.balas[i].y - (enemigos[j].y + CELL/2);
 
                     if(dx*dx + dy*dy < (CELL/2)*(CELL/2))
                     {
-                        balas[i].activa = false;
+                        serpiente.balas[i].activa = false;
                         enemigos[j].vivo = false;
                         enemigos[j].respawn = 120;
                         break;
@@ -800,9 +804,12 @@ void actualizarJuego()
         sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
         cargarMapa(juego.archivoNivel);
 
-        for(int i = 0; i < MAX_BANANAS; i++)
+        for(int i = 0; i < cantidadEnemigos; i++)
         {
-            bananas[i].activa = false;
+            for(int j = 0; j < MAX_BALAS; j++)
+            {
+                enemigos[i].balas[j].activa = false;
+            }    
         }
 
         switch(juego.nivel)
@@ -1277,31 +1284,34 @@ void dibujarJuego(ALLEGRO_FONT *font)
         }
     }
 
-    for(int i=0;i<MAX_BANANAS;i++)
+    for(int i = 0; i < cantidadEnemigos; i++)
     {
-        if(bananas[i].activa)
+        for(int j = 0; j < MAX_BALAS; j++)
         {
-            al_draw_scaled_bitmap(
-                sprites.bananaMono,
-                0,
-                0,
-                64,
-                64,
-                bananas[i].x*CELL,
-                bananas[i].y*CELL,
-                CELL,
-                CELL,
-                0);
+            if(enemigos[i].balas[j].activa)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.bananaMono,
+                    0,
+                    0,
+                    64,
+                    64,
+                    enemigos[i].balas[j].x*CELL,
+                    enemigos[i].balas[j].y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
         }
     }
 
     for(int i =0; i < MAX_BALAS; i++)
     {
-        if(balas[i].activa)
+        if(serpiente.balas[i].activa)
         {
             al_draw_filled_circle(
-                balas[i].x,
-                balas[i].y,
+                serpiente.balas[i].x,
+                serpiente.balas[i].y,
                 5,
                 al_map_rgb(0, 255, 0));
         }
@@ -2133,38 +2143,38 @@ int hayEnemigo(int x, int y)
 
 void lanzarBanana(int mono)
 {
-    for(int i = 0; i < MAX_BANANAS; i++)
+    for(int i = 0; i < MAX_BALAS; i++)
     {
-        if(!bananas[i].activa)
+        if(!enemigos[mono].balas[i].activa)
         {
-            bananas[i].activa = true;
+            enemigos[mono].balas[i].activa = true;
 
             //Banana sale del mono
-            bananas[i].x = enemigos[mono].x / CELL;
-            bananas[i].y = enemigos[mono].y / CELL;
+            enemigos[mono].balas[i].x = enemigos[mono].x / CELL;
+            enemigos[mono].balas[i].y = enemigos[mono].y / CELL;
 
             //Destino cabeza de la serpiente
-            bananas[i].destinoX = serpiente.segmentos[0].x;
-            bananas[i].destinoY = serpiente.segmentos[0].y;
+            enemigos[mono].balas[i].destinoX = serpiente.segmentos[0].x;
+            enemigos[mono].balas[i].destinoY = serpiente.segmentos[0].y;
 
             if(serpiente.dx == 1)
-                bananas[i].destinoX += 4;
+                enemigos[mono].balas[i].destinoX += 4;
 
             if(serpiente.dx == -1)
-                bananas[i].destinoX -= 4;
+                enemigos[mono].balas[i].destinoX -= 4;
 
             if(serpiente.dy == 1)
-                bananas[i].destinoY += 4;
+                enemigos[mono].balas[i].destinoY += 4;
 
             if(serpiente.dy == -1)
-                bananas[i].destinoY -= 4;
+                enemigos[mono].balas[i].destinoY -= 4;
 
             //Velocidad de la banana
-            bananas[i].velocidadX =
-                (bananas[i].destinoX - bananas[i].x) / 10.0;
+            enemigos[mono].balas[i].velocidadX =
+                (enemigos[mono].balas[i].destinoX - enemigos[mono].balas[i].x) / 10.0;
 
-            bananas[i].velocidadY =
-                (bananas[i].destinoY - bananas[i].y) / 10.0;
+            enemigos[mono].balas[i].velocidadY =
+                (enemigos[mono].balas[i].destinoY - enemigos[mono].balas[i].y) / 10.0;
 
             break;
         }
@@ -2249,16 +2259,19 @@ void reiniciarJuego()
 
     for(int i=0; i<MAX_BALAS; i++)
     {
-        balas[i].activa = false;
+        serpiente.balas[i].activa = false;
     }
 
     cargarMapa(juego.archivoNivel);
 
     generarComidas(fase.comidas[fase.numero - 1]);
 
-    for(int i = 0; i < MAX_BANANAS; i++)
+    for(int i = 0; i < cantidadEnemigos; i++)
     {
-        bananas[i].activa = false;
+        for(int j = 0; j < MAX_BALAS; j++)
+        {
+            enemigos[i].balas[j].activa = false;
+        }
     }
 }
 
@@ -2266,40 +2279,43 @@ void disparar()
 {
     for(int i=0; i<MAX_BALAS; i++)
     {
-        if(!balas[i].activa)
+        if(!serpiente.balas[i].activa)
         {
-            balas[i].activa = true;
+            serpiente.balas[i].activa = true;
+            serpiente.balas[i].tipo = BALA_SERPIENTE;
+            serpiente.balas[i].distancia = 0;
+            serpiente.balas[i].rango = 15;
 
-            balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
-            balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
+            serpiente.balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
+            serpiente.balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
 
             if(serpiente.dx == 1)
             {
-                balas[i].dx = 8;
-                balas[i].dy = 0;
+                serpiente.balas[i].dx = 8;
+                serpiente.balas[i].dy = 0;
 
-                balas[i].x += CELL/2;
+                serpiente.balas[i].x += CELL/2;
             }
             else if (serpiente.dx == -1)
             {
-                balas[i].dx = -8;
-                balas[i].dy = 0;
+                serpiente.balas[i].dx = -8;
+                serpiente.balas[i].dy = 0;
 
-                balas[i].x -= CELL/2;
+                serpiente.balas[i].x -= CELL/2;
             }
             else if(serpiente.dy == 1)
             {
-                balas[i].dx = 0;
-                balas[i].dy = 8;
+                serpiente.balas[i].dx = 0;
+                serpiente.balas[i].dy = 8;
 
-                balas[i].y += CELL/2;
+                serpiente.balas[i].y += CELL/2;
             }
             else
             {
-                balas[i].dx = 0;
-                balas[i].dy = -8;
+                serpiente.balas[i].dx = 0;
+                serpiente.balas[i].dy = -8;
 
-                balas[i].y -= CELL/2;
+                serpiente.balas[i].y -= CELL/2;
             }
 
             break;
