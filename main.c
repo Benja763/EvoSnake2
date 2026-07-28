@@ -23,6 +23,8 @@
 #define MONO 2
 #define MAX_BANANAS 10
 #define MAX_RANKING 10
+#define BALA_SERPIENTE 1
+#define BALA_MONO 2
 
 typedef struct
 {
@@ -62,10 +64,15 @@ typedef struct
     char mensaje[100];
     char archivoNivel[30];
     char nombreNivel[30];
-    
 
     int xLlave;
     int yLlave;
+
+    char nombreJugador[20];
+    int largoNombre;
+
+    int pantalla;
+    int opcionMenu;
 
 } Juego;
 
@@ -139,6 +146,11 @@ typedef struct
     float dx;
     float dy;
 
+    float destinoX;
+    float destinoY;
+
+    int tipo;
+
     bool activa;
 
 } Bala;
@@ -211,6 +223,11 @@ int cantidadRankingTiempo = 0;
 
 int cantidadEnemigos = 0;
 
+void actualizarJuego();
+void dibujarMenu(ALLEGRO_FONT *font);
+void dibujarIngresoNombre(ALLEGRO_FONT *font);
+void dibujarRanking(ALLEGRO_FONT *font);
+void dibujarJuego(ALLEGRO_FONT *font);
 void cargarMapa(char nombreArchivo[]);
 void cargarSprites();
 void destruirSprites();
@@ -218,6 +235,9 @@ void cargarRankingSegmentos();
 void guardarRankingSegmentos();
 void cargarRankingTiempo();
 void guardarRankingTiempo();
+void ordenarRankingSegmentos();
+void ordenarRankingTiempo();
+void registrarRanking();
 void reiniciarJuego();
 void generarComidas(int cantidad);
 void generarEnemigo(int i);
@@ -251,9 +271,18 @@ int main()
     ALLEGRO_FONT *font =
         al_create_builtin_font();
 
-        cargarSprites();
+    cargarSprites();
+    cargarRankingSegmentos();
+    cargarRankingTiempo();
+
+    juego.pantalla = 0;
+    juego.opcionMenu = 0;
+    juego.largoNombre = 0;
+    juego.nombreJugador[0] = '\0';
 
     al_install_keyboard();
+
+    al_set_keyboard_leds(0);
 
     al_register_event_source(
         queue,
@@ -268,8 +297,6 @@ int main()
         al_get_timer_event_source(timer));
 
     al_start_timer(timer);
-    reiniciarJuego();
-    printf("Juego iniciado\n");
 
     int running = 1;
 
@@ -283,6 +310,55 @@ int main()
 
         if(ev.type == ALLEGRO_EVENT_KEY_DOWN)
         {
+            if(juego.pantalla == 0)
+            {
+                switch(ev.keyboard.keycode)
+                {
+                    case ALLEGRO_KEY_UP:
+
+                        juego.opcionMenu--;
+                        
+                        if(juego.opcionMenu < 0)
+                            juego.opcionMenu = 2;
+
+                        break;
+
+                    case ALLEGRO_KEY_DOWN:
+
+                        juego.opcionMenu++;
+
+                        if(juego.opcionMenu > 2)
+                            juego.opcionMenu = 0;
+
+                        break;
+
+                    case ALLEGRO_KEY_ENTER:
+
+                        if(juego.opcionMenu == 0)
+                            juego.pantalla = 1;
+
+                        else if(juego.opcionMenu == 1)
+                            juego.pantalla = 2;
+
+                        else
+                            running = 0;
+
+                        break;
+                }
+
+                continue;
+            }
+
+            if(juego.pantalla == 2)
+            {
+                if(ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
+                {
+                    juego.pantalla = 0;
+                }
+
+                continue;
+            }
+
             switch(ev.keyboard.keycode)
             {
                 case ALLEGRO_KEY_UP:
@@ -323,433 +399,680 @@ int main()
             }
         }
 
+        if(ev.type == ALLEGRO_EVENT_KEY_CHAR)
+        {
+            if(juego.pantalla == 1)
+            {
+                int tecla = ev.keyboard.unichar;
+
+                if(tecla >= 32 && tecla <= 126)
+                {
+                    if(juego.largoNombre < 19)
+                    {
+                        juego.nombreJugador[juego.largoNombre] = tecla;
+                        juego.largoNombre++;
+                        juego.nombreJugador[juego.largoNombre] = '\0';
+                    }
+                }
+                else if(tecla == 8)
+                {
+                    if(juego.largoNombre > 0)
+                    {
+                        juego.largoNombre--;
+                        juego.nombreJugador[juego.largoNombre] = '\0';
+                    }
+                }
+                else if(tecla == 13)
+                {
+                    if(juego.largoNombre > 0)
+                    {
+                        reiniciarJuego();
+                        juego.pantalla = 3;
+                    }
+                }
+            }
+        }
+
         if(ev.type == ALLEGRO_EVENT_TIMER)
         {
-            for(int i = 0; i < cantidadEnemigos; i++)
+            actualizarJuego();
+
+            if(juego.pantalla == 0)
             {
-                //Respawn del Gato
+                dibujarMenu(font);
+            }
+            else if(juego.pantalla == 1)
+            {
+                dibujarIngresoNombre(font);
+            }
+            else if(juego.pantalla == 2)
+            {
+                dibujarRanking(font);
+            }
+            else if(juego.pantalla == 3)
+            {
+                dibujarJuego(font);
+            }
 
-                if(!enemigos[i].vivo)
+            al_flip_display();
+        }
+    }
+
+    destruirSprites();
+
+    al_destroy_font(font);
+    al_destroy_display(display);
+    al_destroy_timer(timer);
+    al_destroy_event_queue(queue);
+
+    return 0;
+}
+
+void actualizarJuego()
+{
+    if(juego.pantalla != 3)
+    {
+        return;
+    }
+
+    for(int i = 0; i < cantidadEnemigos; i++)
+    {
+        //Respawn del Gato
+
+        if(!enemigos[i].vivo)
+        {
+            if(enemigos[i].respawn > 0)
+            {
+                enemigos[i].respawn--;
+            }
+            else if(enemigos[i].respawn == 0)
+            {
+                if(juego.nivel == 1)
                 {
-                    if(enemigos[i].respawn > 0)
-                    {
-                        enemigos[i]. respawn--;
-                    }
-                    else if(enemigos[i].respawn == 0)
-                    {
-                        if(juego.nivel == 1)
-                        {
-                            generarEnemigo(i);
-                        }
-                    }
-
-                    continue;
+                    generarEnemigo(i);
                 }
+            }
 
-                if(enemigos[i].vivo)
+            continue;
+        }
+
+        if(enemigos[i].vivo)
+        {
+            //Mono Lanza Bananas
+            if(enemigos[i].tipo == MONO)
+            {
+                enemigos[i].tiempoDisparo--;
+
+                if(enemigos[i].tiempoDisparo <=0)
                 {
-                    //Mono Lanza Bananas
-                    if(enemigos[i].tipo == MONO)
-                    {
-                        enemigos[i].tiempoDisparo--;
+                    lanzarBanana(i);
 
-                        if(enemigos[i].tiempoDisparo <=0)
-                        {
-                            lanzarBanana(i);
+                    enemigos[i].tiempoDisparo = 120;
+                }
+            } 
 
-                            enemigos[i].tiempoDisparo = 120;
-                        }
-                    } 
+            //Movimiento
+            float nuevoX = enemigos[i].x + enemigos[i].dx;
+            float nuevoY = enemigos[i].y + enemigos[i].dy;
 
-                    //Movimiento
-                 float nuevoX = enemigos[i].x + enemigos[i].dx;
-                 float nuevoY = enemigos[i].y + enemigos[i].dy;
+            int columna = (nuevoX + CELL/2) / CELL;
+            int fila = (nuevoY + CELL/2) / CELL;
 
-                 int columna = (nuevoX + CELL/2) / CELL;
-                 int fila = (nuevoY + CELL/2) / CELL;
-
-                 if(mapa[fila][columna] == '#')
-                 {
-                    if(enemigos[i].tipo == GATO)
-                    {
-                        enemigos[i].dx *= -1;
-                    }
-                    else
-                    {
-                        enemigos[i].dy *= -1;
-                    }
-                 }
-                 else
-                 {
-                    enemigos[i].x = nuevoX;
-                    enemigos[i].y = nuevoY;
-                 }
-
-                 int enemigoX = (enemigos[i].x + CELL / 2) / CELL;
-                 int enemigoY = (enemigos[i].y + CELL / 2) / CELL;
-
-                 //Enemigo Mata a la Serpiente
-                 if(enemigoX == serpiente.segmentos[0].x &&
-                    enemigoY == serpiente.segmentos[0].y)
-                 {
-                    reiniciarJuego();
-                 }
-
-                    //Animacion
-
+            if(mapa[fila][columna] == '#')
+            {
                 if(enemigos[i].tipo == GATO)
                 {
-                    enemigos[i].distanciaAnimacion +=
-                        fabs(enemigos[i].dx) + fabs(enemigos[i].dy);
-
-                    if(enemigos[i].distanciaAnimacion >= 16)
-                    {
-                        enemigos[i].distanciaAnimacion = 0;
-
-                        if(enemigos[i].dx > 0)
-                        {
-                            enemigos[i].frame++;
-
-                            if(enemigos[i].frame > 5)
-                                enemigos[i].frame = 0;
-                        }
-                        else
-                        {
-                            enemigos[i].frame++;
-
-                            if(enemigos[i].frame < 6 || enemigos[i].frame > 11)
-                                enemigos[i].frame = 6;
-                        }
-                    }        
+                    enemigos[i].dx *= -1;
                 }
-            }
-        }
-
-        //Movimiento de bananas
-                    for(int j = 0; j < MAX_BANANAS; j++)
-                    {
-                        if(bananas[j].activa)
-                        {
-                            bananas[j].x += bananas[j].velocidadX;
-                            bananas[j].y += bananas[j].velocidadY;
-
-                            if(fabs(bananas[j].x - bananas[j].destinoX) < 0.2 &&
-                            fabs(bananas[j].y - bananas[j].destinoY) < 0.2)
-                            {
-                                bananas[j].x = bananas[j].destinoX;
-                                bananas[j].y = bananas[j].destinoY;
-
-                                bananas[j].velocidadX = 0;
-                                bananas[j].velocidadY = 0;
-                            }
-
-                            if((int)bananas[j].x == serpiente.segmentos[0].x &&
-                               (int)bananas[j].y == serpiente.segmentos[0].y)
-                            {
-                                reiniciarJuego();
-                            }
-                        }
-                    }
-
-            for(int i =0; i < MAX_BALAS; i++)
-            {
-                if(balas[i].activa)
+                else
                 {
-                    balas[i].x += balas[i].dx;
-                    balas[i].y += balas[i].dy;
-
-                    int columna = balas[i].x / CELL;
-                    int fila = balas[i].y / CELL;
-
-                    if(mapa[fila][columna] == '#')
-                    {
-                        balas[i].activa = false;
-                    }
-
-                    if(balas[i].x < 0 ||
-                       balas[i].x > M * CELL ||
-                       balas[i].y < 0 ||
-                       balas[i].y > N * CELL)
-                    {
-                        balas[i].activa = false;
-                    }
-                }    
-            }
-
-            for(int i = 0; i < MAX_BALAS; i++)
-            {
-                if(balas[i].activa)
-                {
-                    for(int j = 0; j < cantidadEnemigos; j++)
-                    {
-                        if(enemigos[j].vivo)
-                        {
-                            float dx = balas[i].x - (enemigos[j].x + CELL/2);
-                            float dy = balas[i].y - (enemigos[j].y + CELL/2);
-
-                            if(dx*dx + dy*dy < (CELL/2)*(CELL/2))
-                            {
-                                balas[i].activa = false;
-                                enemigos[j].vivo = false;
-                                enemigos[j].respawn = 120;
-
-                                break;
-                            }
-                        }
-                    }
+                    enemigos[i].dy *= -1;
                 }
-            }
-
-            for(int i=serpiente.tamano-1;i>0;i--)
-            {
-                serpiente.segmentos[i] = serpiente.segmentos[i-1];
-            }
-
-            serpiente.segmentos[0].x += serpiente.dx;
-            serpiente.segmentos[0].y += serpiente.dy;
-
-            if(verificarLimites())
-            {
-                printf("GAME OVER\n");
-
-                reiniciarJuego();
-            }
-            if(verificarColisionMuro())
-            {
-                printf("GAME OVER\n");
-
-                reiniciarJuego();
-            }
-
-            if(verificarColisionSerpiente())
-            {
-                printf("GAME OVER\n");
-
-                reiniciarJuego();
-            }
-
-            verificarPuertaBloqueada();
-
-            int comidaComida = 0;
-
-            for(int i=0; i<MAX_COMIDAS; i++)
-            {
-                if(comidas[i].activa && serpiente.segmentos[0].x == comidas[i].x && serpiente.segmentos[0].y == comidas[i].y)
-                {
-                    comidas[i].activa = false;
-
-                    serpiente.segmentos[serpiente.tamano] = serpiente.segmentos[serpiente.tamano-1];
-
-                    serpiente.tamano++;
-
-                    juego.puntaje++;
-
-                    fase.comidasComidas++;
-
-                    comidaComida = 1;
-
-                    break;
-                }
-            }
-
-            if(comidaComida)
-            {
-                int quedan = 0;
-
-                for(int i=0; i<MAX_COMIDAS; i++)
-                {
-                    if(comidas[i].activa)
-                    {
-                        quedan++;
-                    }
-                }
-
-                if(quedan == 0)
-                {
-                    if(fase.numero < 3)
-                    {
-                        fase.numero++;
-                        fase.comidasComidas = 0;
-
-                        sprintf(juego.mensaje, "Fase %d", fase.numero);
-                        juego.tiempoMensaje = 24;
-
-                        generarComidas(fase.comidas[fase.numero - 1]);
-                    }
-                    else
-                    {
-                        mapa[juego.yLlave][juego.xLlave] = 'L';
-                        strcpy(juego.mensaje, "Ya puedes recoger la llave");
-                        juego.tiempoMensaje = 24;
-                    }
-                }
-            }
-
-           if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'L')
-            {
-                juego.tieneLlave = 1;
-
-                mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] = ' ';
-
-                strcpy(juego.mensaje, "Llave obtenida");
-
-                juego.tiempoMensaje = 24;
-            }
-
-            if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'E' && juego.tieneLlave)
-            {
-                juego.nivel = 2;
-
-                sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
-
-                cargarMapa(juego.archivoNivel);
-
-                for(int i = 0; i < MAX_BANANAS; i++)
-                {
-                    bananas[i].activa = false;
-                }
-
-                switch(juego.nivel)
-                {
-                    case 1:
-                        strcpy(juego.nombreNivel, "Pradera");
-                        break;
-
-                    case 2:
-                        strcpy(juego.nombreNivel, "Bosque");
-                        break;
-
-                    case 3:
-                        strcpy(juego.nombreNivel, "Desierto");
-                        break;
-                    case 4:
-                        strcpy(juego.nombreNivel, "Iceberg");
-                        break;
-                    case 5:
-                        strcpy(juego.nombreNivel, "Volcan");
-                        break;
-                }
-
-                fase.numero = 1;
-                fase.comidasComidas = 0;
-
-                for(int i=0; i<MAX_COMIDAS; i++)
-                {
-                    comidas[i].activa = false;
-                }
-
-                generarComidas(fase.comidas[fase.numero - 1]);
-
-                juego.tieneLlave = 0;
-
-                serpiente.dx = 1;
-                serpiente.dy = 0;
-
-                sprintf(juego.mensaje, "Bienvenido a %s", juego.nombreNivel);
-                juego.tiempoMensaje = 24;
-            }
-
-    al_clear_to_color(
-        al_map_rgb(136,231,136));
-
-        if(juego.nivel == 1)
-        {
-            for(int i=0; i<N; i++)
-            {
-                for(int j=0; j<M; j++)
-                {
-                    al_draw_scaled_bitmap(
-                        sprites.fondoPradera,
-                        0,
-                        0,
-                        64,
-                        64,
-                        j*CELL,
-                        i*CELL,
-                        CELL,
-                        CELL,
-                        0);
-                }
-            }
-        }
-        else if(juego.nivel == 2)
-        {
-            for(int i=0; i<N; i++)
-            {
-                for(int j=0; j<M; j++)
-                {
-                    al_draw_scaled_bitmap(
-                        sprites.bosquePiso,
-                        0,
-                        0,
-                        64,
-                        64,
-                        j*CELL,
-                        i*CELL,
-                        CELL,
-                        CELL,
-                        0);
-                }
-            }
-        }
-        else
-        {
-            al_clear_to_color(al_map_rgb(136,231,136));
-        }              
-
-for(int i=0; i<N; i++)
-{
-    for(int j=0; j<M; j++)
-    {
-
-        char casilla = mapa[i][j];
-
-        switch(casilla)
-        {
-            //Muros
-            case '#':
-
-            if(juego.nivel == 1)
-            {
-                al_draw_scaled_bitmap(
-                    sprites.arbusto,
-                    0,
-                    0,
-                    64,
-                    64,
-                    j*CELL,
-                    i*CELL,
-                    CELL,
-                    CELL,
-                    0);
-            }
-            else if(juego.nivel == 2)
-            {
-                al_draw_scaled_bitmap(
-                    sprites.bosqueMuro,
-                    0,
-                    0,
-                    64,
-                    64,
-                    j*CELL,
-                    i*CELL,
-                    CELL,
-                    CELL,
-                    0);
             }
             else
             {
-                al_draw_filled_rectangle(
-                    j*CELL,
-                    i*CELL,
-                    j*CELL+CELL,
-                    i*CELL+CELL,
-                    al_map_rgb(90,90,90));
+                enemigos[i].x = nuevoX;
+                enemigos[i].y = nuevoY;
             }
+
+            int enemigoX = (enemigos[i].x + CELL / 2) / CELL;
+            int enemigoY = (enemigos[i].y + CELL / 2) / CELL;
+
+            //Enemigo Mata a la Serpiente
+            if(enemigoX == serpiente.segmentos[0].x &&
+               enemigoY == serpiente.segmentos[0].y)
+            {
+                registrarRanking();
+                reiniciarJuego();
+            }
+
+            //Animacion
+
+            if(enemigos[i].tipo == GATO)
+            {
+                enemigos[i].distanciaAnimacion +=
+                fabs(enemigos[i].dx) + fabs(enemigos[i].dy);
+
+                if(enemigos[i].distanciaAnimacion >= 16)
+                {
+                    enemigos[i].distanciaAnimacion = 0;
+
+                    if(enemigos[i].dx > 0)
+                    {
+                        enemigos[i].frame++;
+
+                        if(enemigos[i].frame > 5)
+                           enemigos[i].frame = 0;
+                    }
+                    else
+                    {
+                        enemigos[i].frame++;
+
+                        if(enemigos[i].frame < 6 || enemigos[i].frame > 11)
+                           enemigos[i].frame = 6;
+                    }
+                }        
+            }
+        }
+    }
+
+    //Movimiento de bananas
+    for(int j = 0; j < MAX_BANANAS; j++)
+    {
+        if(bananas[j].activa)
+        {
+            bananas[j].x += bananas[j].velocidadX;
+            bananas[j].y += bananas[j].velocidadY;
+
+            if(fabs(bananas[j].x - bananas[j].destinoX) < 0.2 &&
+               fabs(bananas[j].y - bananas[j].destinoY) < 0.2)
+            {
+                bananas[j].x = bananas[j].destinoX;
+                bananas[j].y = bananas[j].destinoY;
+
+                bananas[j].velocidadX = 0;
+                bananas[j].velocidadY = 0;
+            }
+
+            int bananaX = (int)bananas[j].x;
+            int bananaY = (int)bananas[j].y;
+
+            for (int k = 0; k < serpiente.tamano; k++)
+            {
+                if(bananaX == serpiente.segmentos[k].x &&
+                   bananaY == serpiente.segmentos[k].y)
+                {
+                    if(serpiente.tamano > 2)
+                    {
+                        serpiente.tamano--;
+                    }
+                    else
+                    {
+                        registrarRanking();
+                        reiniciarJuego();
+                    }
+
+                    bananas[j].activa = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    for(int i =0; i < MAX_BALAS; i++)
+    {
+        if(balas[i].activa)
+        {
+            balas[i].x += balas[i].dx;
+            balas[i].y += balas[i].dy;
+
+            int columna = balas[i].x / CELL;
+            int fila = balas[i].y / CELL;
+
+            if(columna < 0 || columna >= M ||
+               fila < 0 || fila >= N)
+            {
+                balas[i].activa = false;
+                continue;
+            }
+
+            if(mapa[fila][columna] == '#')
+            {
+                balas[i].activa = false;
+            }
+
+            if(balas[i].x < 0 ||
+               balas[i].x > M * CELL ||
+               balas[i].y < 0 ||
+               balas[i].y > N * CELL)
+            {
+                balas[i].activa = false;
+            }
+        }    
+    }
+
+    for(int i = 0; i < MAX_BALAS; i++)
+    {
+        if(balas[i].activa)
+        {
+            for(int j = 0; j < cantidadEnemigos; j++)
+            {
+                if(enemigos[j].vivo)
+                {
+                    float dx = balas[i].x - (enemigos[j].x + CELL/2);
+                    float dy = balas[i].y - (enemigos[j].y + CELL/2);
+
+                    if(dx*dx + dy*dy < (CELL/2)*(CELL/2))
+                    {
+                        balas[i].activa = false;
+                        enemigos[j].vivo = false;
+                        enemigos[j].respawn = 120;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    for(int i=serpiente.tamano-1;i>0;i--)
+    {
+        serpiente.segmentos[i] = serpiente.segmentos[i-1];
+    }
+
+    serpiente.segmentos[0].x += serpiente.dx;
+    serpiente.segmentos[0].y += serpiente.dy;
+
+    if(verificarLimites())
+    {
+        printf("GAME OVER\n");
+
+        registrarRanking();
+        reiniciarJuego();
+    }
+
+    if(verificarColisionMuro())
+    {
+        printf("GAME OVER\n");
+
+        registrarRanking();
+        reiniciarJuego();
+    }
+
+    if(verificarColisionSerpiente())
+    {
+        printf("GAME OVER\n");
+
+        registrarRanking();
+        reiniciarJuego();
+    }
+
+    verificarPuertaBloqueada();
+
+    int comidaComida = 0;
+
+    for(int i=0; i<MAX_COMIDAS; i++)
+    {
+        if(comidas[i].activa && serpiente.segmentos[0].x == comidas[i].x && serpiente.segmentos[0].y == comidas[i].y)
+        {
+            comidas[i].activa = false;
+
+            serpiente.segmentos[serpiente.tamano] = serpiente.segmentos[serpiente.tamano-1];
+
+            serpiente.tamano++;
+            juego.puntaje++;
+            fase.comidasComidas++;
+            comidaComida = 1;
+            break;
+        }
+    }
+
+    if(comidaComida)
+    {
+        int quedan = 0;
+
+        for(int i=0; i<MAX_COMIDAS; i++)
+        {
+            if(comidas[i].activa)
+            {
+                quedan++;
+            }
+        }
+
+        if(quedan == 0)
+        {
+            if(fase.numero < 3)
+            {
+                fase.numero++;
+                fase.comidasComidas = 0;
+
+                sprintf(juego.mensaje, "Fase %d", fase.numero);
+                juego.tiempoMensaje = 24;
+
+                generarComidas(fase.comidas[fase.numero - 1]);
+            }
+            else
+            {
+                mapa[juego.yLlave][juego.xLlave] = 'L';
+                strcpy(juego.mensaje, "Ya puedes recoger la llave");
+                juego.tiempoMensaje = 24;
+            }
+        }
+    }
+
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'L')
+    {
+        juego.tieneLlave = 1;
+
+        mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] = ' ';
+
+        strcpy(juego.mensaje, "Llave obtenida");
+        juego.tiempoMensaje = 24;
+    }
+
+    if(mapa[serpiente.segmentos[0].y][serpiente.segmentos[0].x] == 'E' && juego.tieneLlave)
+    {
+        juego.nivel = 2;
+        sprintf(juego.archivoNivel, "Niveles/nivel%d.txt", juego.nivel);
+        cargarMapa(juego.archivoNivel);
+
+        for(int i = 0; i < MAX_BANANAS; i++)
+        {
+            bananas[i].activa = false;
+        }
+
+        switch(juego.nivel)
+        {
+            case 1:
+            strcpy(juego.nombreNivel, "Pradera");
             break;
 
+            case 2:
+            strcpy(juego.nombreNivel, "Bosque");
+            break;
+
+            case 3:
+            strcpy(juego.nombreNivel, "Desierto");
+            break;
+
+            case 4:
+            strcpy(juego.nombreNivel, "Iceberg");
+            break;
+
+            case 5:
+            strcpy(juego.nombreNivel, "Volcan");
+            break;
+        }
+
+        fase.numero = 1;
+        fase.comidasComidas = 0;
+
+        for(int i=0; i<MAX_COMIDAS; i++)
+        {
+            comidas[i].activa = false;
+        }
+
+        generarComidas(fase.comidas[fase.numero - 1]);
+
+        juego.tieneLlave = 0;
+
+        serpiente.dx = 1;
+        serpiente.dy = 0;
+
+        sprintf(juego.mensaje, "Bienvenido a %s", juego.nombreNivel);
+        juego.tiempoMensaje = 24;
+    }
+
+    juego.contadorTiempo++;
+
+    if(juego.contadorTiempo >= 8)
+    {
+        juego.tiempo++;
+        juego.contadorTiempo = 0;
+    }
+
+    if(juego.tiempoMensaje > 0)
+    {
+        juego.tiempoMensaje--;
+    }
+}
+
+void dibujarMenu(ALLEGRO_FONT *font)
+{
+    al_clear_to_color(al_map_rgb(0,0,0));
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        100,
+        ALLEGRO_ALIGN_CENTER,
+        "EVOSNAKE");
+
+    al_draw_text(
+        font,
+        juego.opcionMenu == 0 ?
+        al_map_rgb(255,255,0) :
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        200,
+        ALLEGRO_ALIGN_CENTER,
+        "Jugar");
+
+    al_draw_text(
+        font,
+        juego.opcionMenu == 1 ?
+        al_map_rgb(255,255,0) :
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        240,
+        ALLEGRO_ALIGN_CENTER,
+        "Ranking");
+
+    al_draw_text(
+        font,
+        juego.opcionMenu == 2 ?
+        al_map_rgb(255,255,0) :
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        280,
+        ALLEGRO_ALIGN_CENTER,
+        "Salir");
+}
+
+void dibujarIngresoNombre(ALLEGRO_FONT *font)
+{
+    al_clear_to_color(al_map_rgb(0,0,0));
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        120,
+        ALLEGRO_ALIGN_CENTER,
+        "Ingrese su nombre");
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,0),
+        WIDTH/2,
+        180,
+        ALLEGRO_ALIGN_CENTER,
+        juego.nombreJugador);
+}
+
+void dibujarRanking(ALLEGRO_FONT *font)
+{
+    al_clear_to_color(al_map_rgb(0,0,0));
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        80,
+        ALLEGRO_ALIGN_CENTER,
+        "RANKING");
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,0),
+        100,
+        120,
+        0,
+        "PUNTAJE");
+    for(int i=0;
+        i<cantidadRankingSegmentos && i<10;
+        i++)
+    {
+        char texto[50];
+
+        sprintf(texto,
+        "%d. %s - %d",
+        i+1,
+        rankingSegmentos[i].nombre,
+        rankingSegmentos[i].dato);
+
+        al_draw_text(
+            font,
+            al_map_rgb(255,255,255),
+            100,
+            150+i*20,
+            0,
+            texto);
+    }
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,0),
+        450,
+        120,
+        0,
+        "TIEMPO");
+
+    for(int i=0;
+        i<cantidadRankingTiempo && i<10;
+        i++)
+    {
+        char texto[50];
+
+        sprintf(texto,
+        "%d. %s - %d",
+        i+1,
+        rankingTiempo[i].nombre,
+        rankingTiempo[i].dato);
+
+        al_draw_text(
+            font,
+            al_map_rgb(255,255,255),
+            450,
+            150+i*20,
+            0,
+            texto);
+    }
+}
+
+void dibujarJuego(ALLEGRO_FONT *font)
+{
+    al_clear_to_color(
+    al_map_rgb(136,231,136));
+
+    if(juego.nivel == 1)
+    {
+        for(int i=0; i<N; i++)
+        {
+            for(int j=0; j<M; j++)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.fondoPradera,
+                    0,
+                    0,
+                    64,
+                    64,
+                    j*CELL,
+                    i*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+        }
+    }
+    else if(juego.nivel == 2)
+    {
+        for(int i=0; i<N; i++)
+        {
+            for(int j=0; j<M; j++)
+            {
+                al_draw_scaled_bitmap(
+                    sprites.bosquePiso,
+                    0,
+                    0,
+                    64,
+                    64,
+                    j*CELL,
+                    i*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+        }
+    }
+    else
+    {
+        al_clear_to_color(al_map_rgb(136,231,136));
+    }              
+
+    for(int i=0; i<N; i++)
+    {
+        for(int j=0; j<M; j++)
+        {
+
+            char casilla = mapa[i][j];
+
+            switch(casilla)
+            {
+                //Muros
+                case '#':
+
+                if(juego.nivel == 1)
+                {
+                    al_draw_scaled_bitmap(
+                        sprites.arbusto,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
+                }
+                else if(juego.nivel == 2)
+                {
+                    al_draw_scaled_bitmap(
+                        sprites.bosqueMuro,
+                        0,
+                        0,
+                        64,
+                        64,
+                        j*CELL,
+                        i*CELL,
+                        CELL,
+                        CELL,
+                        0);
+                }
+                else
+                {
+                    al_draw_filled_rectangle(
+                        j*CELL,
+                        i*CELL,
+                        j*CELL+CELL,
+                        i*CELL+CELL,
+                        al_map_rgb(90,90,90));
+                }
+                break;
+
                 //Llave
-            case 'L':
+                case 'L':
 
                 if(!juego.tieneLlave)
                 {
@@ -765,10 +1088,10 @@ for(int i=0; i<N; i++)
                         CELL,
                         0);
                 }
-
                 break;
+
                 //Puerta
-            case 'E':
+                case 'E':
 
                 al_draw_scaled_bitmap(
                     sprites.puerta,
@@ -781,397 +1104,344 @@ for(int i=0; i<N; i++)
                     CELL,
                     CELL,
                     0);
-
                 break;
-        }
-    }
-}
-
-
-for(int i=0; i<MAX_COMIDAS; i++)
-{
-    if(comidas[i].activa)
-    {
-        ALLEGRO_BITMAP *fruta = sprites.frutas[juego.nivel - 1];
-
-        al_draw_scaled_bitmap(
-            fruta,
-            0,
-            0,
-            64,
-            64,
-            comidas[i].x*CELL,
-            comidas[i].y*CELL,
-            CELL,
-            CELL,
-            0);
-    }
-}
-
-for(int i = 0; i < cantidadEnemigos; i++)
-{
-    if(enemigos[i].vivo)
-    {
-        ALLEGRO_BITMAP *sprite;
-
-        if(enemigos[i].tipo == GATO)
-        {
-            sprite = sprites.gatoSprite[enemigos[i].frame];
-        }
-        else if(enemigos[i].tipo == PERRO)
-        {
-            if(enemigos[i].dy < 0)
-            {
-                sprite = sprites.perroSprite[0];
-            }
-            else
-            {
-                sprite = sprites.perroSprite[1];
             }
         }
-        
-        if(enemigos[i].tipo == MONO)
-        {
-            sprite = sprites.monoDerecha;
-        }
-
-        al_draw_scaled_bitmap(
-            sprite,
-            0,
-            0,
-            64,
-            64,
-            enemigos[i].x,
-            enemigos[i].y,
-            CELL,
-            CELL,
-            0
-        );
     }
-}
 
-for(int i=0;i<MAX_BANANAS;i++)
-{
-    if(bananas[i].activa)
+    for(int i=0; i<MAX_COMIDAS; i++)
     {
-        al_draw_scaled_bitmap(
-            sprites.bananaMono,
-            0,
-            0,
-            64,
-            64,
-            bananas[i].x*CELL,
-            bananas[i].y*CELL,
-            CELL,
-            CELL,
-            0);
-
-        int bananaX = bananas[i].x;
-        int bananaY = bananas[i].y;
-
-        for(int j = 0; j < serpiente.tamano; j++)
+        if(comidas[i].activa)
         {
+            ALLEGRO_BITMAP *fruta = sprites.frutas[juego.nivel - 1];
 
-            if(bananaX == serpiente.segmentos[j].x &&
-               bananaY == serpiente.segmentos[j].y)
+            al_draw_scaled_bitmap(
+                fruta,
+                0,
+                0,
+                64,
+                64,
+                comidas[i].x*CELL,
+                comidas[i].y*CELL,
+                CELL,
+                CELL,
+                0);
+        }
+    }
+
+    for(int i = 0; i < cantidadEnemigos; i++)
+    {
+        if(enemigos[i].vivo)
+        {
+            ALLEGRO_BITMAP *sprite;
+
+            if(enemigos[i].tipo == GATO)
             {
-                if(serpiente.tamano > 2)
+                sprite = sprites.gatoSprite[enemigos[i].frame];
+            }
+            else if(enemigos[i].tipo == PERRO)
+            {
+                if(enemigos[i].dy < 0)
                 {
-                    serpiente.tamano--;
+                    sprite = sprites.perroSprite[0];
                 }
                 else
                 {
-                reiniciarJuego();
+                    sprite = sprites.perroSprite[1];
                 }
-
-                bananas[i].activa = false;
             }
+        
+            if(enemigos[i].tipo == MONO)
+            {
+                sprite = sprites.monoDerecha;
+            }
+
+            al_draw_scaled_bitmap(
+                sprite,
+                0,
+                0,
+                64,
+                64,
+                enemigos[i].x,
+                enemigos[i].y,
+                CELL,
+                CELL,
+                0);
         }
     }
-}
 
-for(int i =0; i < MAX_BALAS; i++)
-{
-    if(balas[i].activa)
+    for(int i=0;i<MAX_BANANAS;i++)
     {
-        al_draw_filled_circle(
-            balas[i].x,
-            balas[i].y,
-            5,
-            al_map_rgb(0, 255, 0));
-    }
-}
-
-for(int i=0; i<serpiente.tamano; i++)
-{
-    if(i == 0)
-    {
-        ALLEGRO_BITMAP *cabeza;
-
-        if(serpiente.dx == 1)
-            cabeza = sprites.cabezaDerecha;
-        else if(serpiente.dx == -1)
-            cabeza = sprites.cabezaIzquierda;
-        else if(serpiente.dy == -1)
-            cabeza = sprites.cabezaArriba;
-        else
-            cabeza = sprites.cabezaAbajo;
-
-        al_draw_scaled_bitmap(
-            cabeza,
-            0,
-            0,
-            64,
-            64,
-            serpiente.segmentos[i].x * CELL,
-            serpiente.segmentos[i].y * CELL,
-            CELL,
-            CELL,
-            0);
-    }
-    else if(i == serpiente.tamano - 1)
-    {
-        ALLEGRO_BITMAP *cola;
-
-        if(serpiente.tamano == 1)
-            cola = sprites.colaAbajo;
-        else
+        if(bananas[i].activa)
         {
-        int dx = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
-        int dy = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
+            al_draw_scaled_bitmap(
+                sprites.bananaMono,
+                0,
+                0,
+                64,
+                64,
+                bananas[i].x*CELL,
+                bananas[i].y*CELL,
+                CELL,
+                CELL,
+                0);
+        }
+    }
 
-        if(dx == 0 && dy == 0)
+    for(int i =0; i < MAX_BALAS; i++)
+    {
+        if(balas[i].activa)
         {
-            
+            al_draw_filled_circle(
+                balas[i].x,
+                balas[i].y,
+                5,
+                al_map_rgb(0, 255, 0));
+        }
+    }
+
+    for(int i=0; i<serpiente.tamano; i++)
+    {
+        if(i == 0)
+        {
+            ALLEGRO_BITMAP *cabeza;
+
             if(serpiente.dx == 1)
-                cola = sprites.colaDerecha;
+                cabeza = sprites.cabezaDerecha;
             else if(serpiente.dx == -1)
-                cola = sprites.colaIzquierda;
-            else if(serpiente.dy == 1)
+                cabeza = sprites.cabezaIzquierda;
+            else if(serpiente.dy == -1)
+                cabeza = sprites.cabezaArriba;
+            else
+                cabeza = sprites.cabezaAbajo;
+
+            al_draw_scaled_bitmap(
+                cabeza,
+                0,
+                0,
+                64,
+                64,
+                serpiente.segmentos[i].x * CELL,
+                serpiente.segmentos[i].y * CELL,
+                CELL,
+                CELL,
+                0);
+        }
+        else if(i == serpiente.tamano - 1)
+        {
+            ALLEGRO_BITMAP *cola;
+
+            if(serpiente.tamano == 1)
                 cola = sprites.colaAbajo;
             else
-                cola = sprites.colaArriba;
-        }
-        else if(dx == 1)
-        {
-            cola = sprites.colaDerecha;
-        }
-        else if(dx == -1)
-        {
-            cola = sprites.colaIzquierda;
-        }
-        else if(dy == 1)
-        {
-            cola = sprites.colaAbajo;
+            {
+                int dx = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
+                int dy = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
+
+                if(dx == 0 && dy == 0)
+                {            
+                    if(serpiente.dx == 1)
+                        cola = sprites.colaDerecha;
+                    else if(serpiente.dx == -1)
+                        cola = sprites.colaIzquierda;
+                    else if(serpiente.dy == 1)
+                        cola = sprites.colaAbajo;
+                    else
+                        cola = sprites.colaArriba;
+                }
+                else if(dx == 1)
+                {
+                    cola = sprites.colaDerecha;
+                }
+                else if(dx == -1)
+                {
+                    cola = sprites.colaIzquierda;
+                }
+                else if(dy == 1)
+                {
+                    cola = sprites.colaAbajo;
+                }
+                else
+                {
+                    cola = sprites.colaArriba;
+                }
+            }
+
+            al_draw_scaled_bitmap(
+                cola,
+                0,
+                0,
+                64,
+                64,
+                serpiente.segmentos[i].x*CELL,
+                serpiente.segmentos[i].y*CELL,
+                CELL,
+                CELL,
+                0);
         }
         else
         {
-            cola = sprites.colaArriba;
-        }
-        }
+            int dx1 = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
+            int dy1 = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
 
-        al_draw_scaled_bitmap(
-            cola,
-            0,0,
-            64,64,
-            serpiente.segmentos[i].x*CELL,
-            serpiente.segmentos[i].y*CELL,
-            CELL,
-            CELL,
-            0);
+            int dx2 = serpiente.segmentos[i+1].x - serpiente.segmentos[i].x;
+            int dy2 = serpiente.segmentos[i+1].y - serpiente.segmentos[i].y;
+
+            ALLEGRO_BITMAP *imagen = sprites.cuerpoHorizontal;
+
+            // Cuerpo recto
+
+            if(dy1 == 0 && dy2 == 0)
+            {
+                // Se mueve de izquierda a derecha
+                imagen = sprites.cuerpoHorizontal;
+            }
+            else if(dx1 == 0 && dx2 == 0)
+            {
+                // Se mueve de arriba a abajo
+                imagen = sprites.cuerpoVertical;
+            }
+
+            // Curvas
+
+            else if((dx1==1 && dy2==1) || (dy1==-1 && dx2==-1))
+            {
+                imagen = sprites.curva2;
+            }
+            else if((dx1==-1 && dy2==1) || (dy1==-1 && dx2==1))
+            {
+                imagen = sprites.curva1;
+            }
+            else if((dx1==-1 && dy2==-1) || (dy1==1 && dx2==1))
+            {
+                imagen = sprites.curva3;
+            }
+            else
+            {
+                imagen = sprites.curva4;
+            }
+
+            al_draw_scaled_bitmap(
+                imagen,
+                0,
+                0,
+                64,
+                64,
+                serpiente.segmentos[i].x*CELL,
+                serpiente.segmentos[i].y*CELL,
+                CELL,
+                CELL,
+                0);
+        }
+    }           
+    //Nivel en Pantalla
+
+    char textoNivel[50];
+
+    sprintf(textoNivel,
+    "Nivel: %d",
+    juego.nivel);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        30,
+        0,
+        textoNivel);
+
+    //Puntaje en Pantalla
+
+    char texto[100];
+
+    sprintf(texto,
+    "Puntaje: %d",
+    juego.puntaje);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        10,
+        0,
+        texto);
+
+    //Tiempo en Pantalla
+
+    char textoTiempo[100];
+
+    int minutos = juego.tiempo / 60;
+    int segundos = juego.tiempo % 60;
+
+    sprintf(textoTiempo,
+    "Tiempo: %02d:%02d",
+    minutos,
+    segundos);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        70,
+        0,
+        textoTiempo);
+
+    //Llave Obtenida en Pantalla
+
+    char textoLlave[50];
+    char estadoLlave[5];
+
+    if(juego.tieneLlave)
+    {
+        strcpy(estadoLlave, "SI");
     }
     else
     {
-        int dx1 = serpiente.segmentos[i].x - serpiente.segmentos[i-1].x;
-        int dy1 = serpiente.segmentos[i].y - serpiente.segmentos[i-1].y;
+        strcpy(estadoLlave, "NO");
+    }
 
-        int dx2 = serpiente.segmentos[i+1].x - serpiente.segmentos[i].x;
-        int dy2 = serpiente.segmentos[i+1].y - serpiente.segmentos[i].y;
+    sprintf(textoLlave,
+    "Llave: %s",
+    estadoLlave);
 
-        ALLEGRO_BITMAP *imagen = sprites.cuerpoHorizontal;
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        90,
+        0,
+        textoLlave);
 
-    // Cuerpo recto
+    //Fase y Comidas necesarias en Pantalla
 
-    if(dy1 == 0 && dy2 == 0)
+    char textoComidas[100];
+
+    sprintf(textoComidas,
+    "Fase: %d/3   Comidas: %d/%d",
+    fase.numero,
+    fase.comidasComidas,
+    fase.comidas[fase.numero - 1]);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        50,
+        0,
+        textoComidas);
+
+    //Tiempo en pantalla del mensaje
+
+    if(juego.tiempoMensaje > 0)
     {
-        // Se mueve de izquierda a derecha
-        imagen = sprites.cuerpoHorizontal;
+        al_draw_text(
+            font,
+            al_map_rgb(255,255,0),
+            WIDTH/2,
+            HEIGHT-30,
+            ALLEGRO_ALIGN_CENTER,
+            juego.mensaje);
     }
-    else if(dx1 == 0 && dx2 == 0)
-    {
-        // Se mueve de arriba a abajo
-        imagen = sprites.cuerpoVertical;
-    }
-
-    // Curvas
-
-        else if((dx1==1 && dy2==1) || (dy1==-1 && dx2==-1))
-        {
-            imagen = sprites.curva2;
-        }
-
-        else if((dx1==-1 && dy2==1) || (dy1==-1 && dx2==1))
-        {
-            imagen = sprites.curva1;
-        }
-
-        else if((dx1==-1 && dy2==-1) || (dy1==1 && dx2==1))
-        {
-            imagen = sprites.curva3;
-        }
-
-        else
-        {
-            imagen = sprites.curva4;
-        }
-
-        al_draw_scaled_bitmap(
-            imagen,
-            0,
-            0,
-            64,
-            64,
-            serpiente.segmentos[i].x*CELL,
-            serpiente.segmentos[i].y*CELL,
-            CELL,
-            CELL,
-            0);
-    }
-}           
-            //Nivel en Pantalla
-
-                char textoNivel[50];
-
-                sprintf(textoNivel,
-                        "Nivel: %d",
-                        juego.nivel);
-
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,255),
-                    10,
-                    30,
-                    0,
-                    textoNivel);
-
-            //Puntaje en Pantalla
-
-                char texto[100];
-
-                sprintf(texto,
-                        "Puntaje: %d",
-                        juego.puntaje);
-
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,255),
-                    10,
-                    10,
-                    0,
-                    texto);
-
-            //Tiempo en Pantalla
-
-                char textoTiempo[100];
-
-                int minutos = juego.tiempo / 60;
-                int segundos = juego.tiempo % 60;
-
-                sprintf(textoTiempo,
-                        "Tiempo: %02d:%02d",
-                        minutos,
-                        segundos);
-
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,255),
-                    10,
-                    70,
-                    0,
-                    textoTiempo);
-
-            //Llave Obtenida en Pantalla
-
-                char textoLlave[50];
-                char estadoLlave[5];
-
-                if(juego.tieneLlave)
-                {
-                    strcpy(estadoLlave, "SI");
-                }
-                else
-                {
-                    strcpy(estadoLlave, "NO");
-                }
-
-                sprintf(textoLlave,
-                        "Llave: %s",
-                        estadoLlave);
-
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,255),
-                    10,
-                    90,
-                    0,
-                    textoLlave);
-
-            //Fase y Comidas necesarias en Pantalla
-
-                char textoComidas[100];
-
-                sprintf(textoComidas,
-                        "Fase: %d/3   Comidas: %d/%d",
-                        fase.numero,
-                        fase.comidasComidas,
-                        fase.comidas[fase.numero - 1]);
-
-                al_draw_text(
-                     font,
-                      al_map_rgb(255,255,255),
-                      10,
-                      50,
-                      0,
-                      textoComidas);
-
-            //Tiempo en pantalla del mensaje
-
-            if(juego.tiempoMensaje > 0)
-            {
-                 juego.tiempoMensaje--;
-            }
-
-            if(juego.tiempoMensaje > 0)
-            {
-                al_draw_text(
-                    font,
-                    al_map_rgb(255,255,0),
-                    WIDTH/2,
-                    HEIGHT-30,
-                    ALLEGRO_ALIGN_CENTER,
-                    juego.mensaje
-                );
-            }
-
-            juego.contadorTiempo++;
-
-            if(juego.contadorTiempo >= 8)
-            {
-                juego.tiempo++;
-                juego.contadorTiempo = 0;
-            }
-
-            al_flip_display();
-        }
-    }
-
-    destruirSprites();
-
-    al_destroy_display(display);
-    al_destroy_timer(timer);
-    al_destroy_event_queue(queue);
-
-    return 0;
 }
 
 void cargarMapa(char nombreArchivo[])
@@ -1511,7 +1781,7 @@ void cargarRankingTiempo()
         cantidadRankingTiempo++;
 
         if(cantidadRankingTiempo >= MAX_RANKING)
-            break;
+        break;
     }
 
     fclose(archivo);
@@ -1552,6 +1822,45 @@ void guardarRankingTiempo()
     }
 
     fclose(archivo);
+}
+
+void registrarRanking()
+{
+    if(cantidadRankingSegmentos < MAX_RANKING)
+    {
+        strcpy(
+            rankingSegmentos[cantidadRankingSegmentos].nombre,
+            juego.nombreJugador);
+
+        rankingSegmentos[cantidadRankingSegmentos].dato =
+            juego.puntaje;
+
+        cantidadRankingSegmentos++;
+    }
+
+    if(cantidadRankingTiempo < MAX_RANKING)
+    {
+        strcpy(
+            rankingTiempo[cantidadRankingTiempo].nombre,
+            juego.nombreJugador);
+
+        rankingTiempo[cantidadRankingTiempo].dato =
+            juego.tiempo;
+
+        cantidadRankingTiempo++;
+    }
+
+    ordenarRankingSegmentos();
+    ordenarRankingTiempo();
+
+    if(cantidadRankingSegmentos > MAX_RANKING)
+        cantidadRankingSegmentos = MAX_RANKING;
+
+    if(cantidadRankingTiempo > MAX_RANKING)
+        cantidadRankingTiempo = MAX_RANKING;
+
+    guardarRankingSegmentos();
+    guardarRankingTiempo();
 }
 
 void ordenarRankingSegmentos()
