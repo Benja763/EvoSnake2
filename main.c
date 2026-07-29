@@ -151,6 +151,9 @@ typedef struct
 
 typedef struct
 {
+    //Menu
+    ALLEGRO_BITMAP *fondoMenu;
+
         //Niveles
 
     //Nivel 1
@@ -894,15 +897,16 @@ void actualizarJuego(EstadoJuego *estado)
 
 void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font)
 {
-    al_clear_to_color(al_map_rgb(0,0,0));
 
-    al_draw_text(
-        font,
-        al_map_rgb(255,255,255),
-        WIDTH/2,
-        100,
-        ALLEGRO_ALIGN_CENTER,
-        "EVOSNAKE");
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0, 0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0, 0,
+        WIDTH,
+        HEIGHT,
+        0);
 
     ALLEGRO_COLOR color;
 
@@ -960,13 +964,21 @@ void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font)
 
 void dibujarIngresoNombre(EstadoJuego *estado, ALLEGRO_FONT *font)
 {
-    al_clear_to_color(al_map_rgb(0,0,0));
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0, 0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0, 0,
+        WIDTH,
+        HEIGHT,
+        0);
 
     al_draw_text(
         font,
         al_map_rgb(255,255,255),
         WIDTH/2,
-        120,
+        200,
         ALLEGRO_ALIGN_CENTER,
         "Ingrese su nombre");
 
@@ -974,20 +986,40 @@ void dibujarIngresoNombre(EstadoJuego *estado, ALLEGRO_FONT *font)
         font,
         al_map_rgb(255,255,0),
         WIDTH/2,
-        180,
+        240,
         ALLEGRO_ALIGN_CENTER,
         estado->juego.nombreJugador);
 }
 
 void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font)
 {
-    al_clear_to_color(al_map_rgb(0,0,0));
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0, 0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0, 0,
+        WIDTH,
+        HEIGHT,
+        0);
+
+    // Panel izquierdo
+    al_draw_filled_rectangle(
+        70, 190,
+        340, 450,
+        al_map_rgba(0, 0, 0, 180));
+
+    // Panel derecho
+    al_draw_filled_rectangle(
+        420, 190,
+        730, 450,
+        al_map_rgba(0, 0, 0, 180));
 
     al_draw_text(
         font,
         al_map_rgb(255,255,255),
         WIDTH/2,
-        80,
+        170,
         ALLEGRO_ALIGN_CENTER,
         "RANKING");
 
@@ -995,7 +1027,7 @@ void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font)
         font,
         al_map_rgb(255,255,0),
         100,
-        120,
+        210,
         0,
         "PUNTAJE");
 
@@ -1013,7 +1045,7 @@ void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font)
             font,
             al_map_rgb(255,255,255),
             100,
-            150+i*20,
+            240+i*20,
             0,
             texto);
     }
@@ -1022,7 +1054,7 @@ void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font)
         font,
         al_map_rgb(255,255,0),
         450,
-        120,
+        210,
         0,
         "TIEMPO");
 
@@ -1044,7 +1076,7 @@ void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font)
             font,
             al_map_rgb(255,255,255),
             450,
-            150+i*20,
+            240+i*20,
             0,
             texto);
     }
@@ -1716,6 +1748,9 @@ void cargarMapa(EstadoJuego *estado, char nombreArchivo[])
 
 void cargarSprites(EstadoJuego *estado)
 {
+    //Menu
+    estado->sprites.fondoMenu = al_load_bitmap("Sprites/fondoMenu.png");
+
     //Serpiente
 
     estado->sprites.cabezaArriba = al_load_bitmap("Sprites/CabezaSerpArriba.png");
@@ -1862,6 +1897,8 @@ void cargarSprites(EstadoJuego *estado)
 
 void destruirSprites(EstadoJuego *estado)
 {
+    al_destroy_bitmap(estado->sprites.fondoMenu);
+
     al_destroy_bitmap(estado->sprites.cabezaArriba);
     al_destroy_bitmap(estado->sprites.cabezaAbajo);
     al_destroy_bitmap(estado->sprites.cabezaIzquierda);
