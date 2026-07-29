@@ -24,6 +24,9 @@
 #define MAX_RANKING 10
 #define BALA_SERPIENTE 1
 #define BALA_MONO 2
+#define RANGO_BALA_SERPIENTE 6
+#define RANGO_BANANA_MONO 8
+#define CASCARA_BANANA 3
 
 typedef struct
 {
@@ -191,6 +194,7 @@ typedef struct
     ALLEGRO_BITMAP *monoDerecha;
 
     ALLEGRO_BITMAP *bananaMono;
+    ALLEGRO_BITMAP *cascarabananaMono;
 
     // Serpiente
     ALLEGRO_BITMAP *cabezaArriba;
@@ -212,6 +216,7 @@ typedef struct
     ALLEGRO_BITMAP *curva4;
 
 } Sprites;
+
 
 char mapa[N][M];
 
@@ -547,11 +552,15 @@ void actualizarJuego()
             int enemigoY = (enemigos[i].y + CELL / 2) / CELL;
 
             //Enemigo Mata a la Serpiente
-            if(enemigoX == serpiente.segmentos[0].x &&
-               enemigoY == serpiente.segmentos[0].y)
+            for(int k = 0; k < serpiente.tamano; k++)
             {
-                registrarRanking();
-                reiniciarJuego();
+                if(enemigoX == serpiente.segmentos[k].x &&
+                   enemigoY == serpiente.segmentos[k].y)
+                {
+                    registrarRanking();
+                    reiniciarJuego();
+                    break;
+                }
             }
 
             //Animacion
@@ -593,6 +602,15 @@ void actualizarJuego()
             {
                 enemigos[i].balas[j].x += enemigos[i].balas[j].velocidadX;
                 enemigos[i].balas[j].y += enemigos[i].balas[j].velocidadY;
+                enemigos[i].balas[j].distancia +=
+                sqrt(enemigos[i].balas[j].velocidadX * enemigos[i].balas[j].velocidadX +
+                     enemigos[i].balas[j].velocidadY * enemigos[i].balas[j].velocidadY);
+
+                if(enemigos[i].balas[j].distancia >= enemigos[i].balas[j].rango)
+                {
+                    enemigos[i].balas[j].activa = false;
+                    continue;
+                }
 
                 if(fabs(enemigos[i].balas[j].x - enemigos[i].balas[j].destinoX) < 0.2 &&
                    fabs(enemigos[i].balas[j].y - enemigos[i].balas[j].destinoY) < 0.2)
@@ -602,6 +620,7 @@ void actualizarJuego()
 
                     enemigos[i].balas[j].velocidadX = 0;
                     enemigos[i].balas[j].velocidadY = 0;
+                    enemigos[i].balas[j].tipo = CASCARA_BANANA;
                 }
 
                 int bananaX = (int)enemigos[i].balas[j].x;
@@ -637,7 +656,9 @@ void actualizarJuego()
             serpiente.balas[i].x += serpiente.balas[i].dx;
             serpiente.balas[i].y += serpiente.balas[i].dy;
 
-            serpiente.balas[i].distancia++;
+            serpiente.balas[i].distancia +=
+            abs((int)serpiente.balas[i].dx) +
+            abs((int)serpiente.balas[i].dy);
 
             if(serpiente.balas[i].distancia >= serpiente.balas[i].rango)
             {
@@ -1009,11 +1030,15 @@ void dibujarRanking(ALLEGRO_FONT *font)
     {
         char texto[50];
 
+        int minutos = rankingTiempo[i].dato / 60;
+        int segundos = rankingTiempo[i].dato % 60;
+
         sprintf(texto,
-        "%d. %s - %d",
+        "%d. %s - %02d:%02d",
         i+1,
         rankingTiempo[i].nombre,
-        rankingTiempo[i].dato);
+        minutos,
+        segundos);
 
         al_draw_text(
             font,
@@ -1290,17 +1315,23 @@ void dibujarJuego(ALLEGRO_FONT *font)
         {
             if(enemigos[i].balas[j].activa)
             {
-                al_draw_scaled_bitmap(
-                    sprites.bananaMono,
-                    0,
-                    0,
-                    64,
-                    64,
-                    enemigos[i].balas[j].x*CELL,
-                    enemigos[i].balas[j].y*CELL,
-                    CELL,
-                    CELL,
-                    0);
+                ALLEGRO_BITMAP *sprite;
+
+                if(enemigos[i].balas[j].tipo == BALA_MONO)
+                {
+                    sprite = sprites.bananaMono;
+                }
+                else
+                {
+                    sprite = sprites.cascarabananaMono;
+                }
+
+                    al_draw_scaled_bitmap(
+                        sprite,
+                        0,0,64,64,
+                        enemigos[i].balas[j].x * CELL,
+                        enemigos[i].balas[j].y * CELL,
+                        CELL,CELL,0);
             }
         }
     }
@@ -1719,6 +1750,7 @@ void cargarSprites()
 
     sprites.monoDerecha = al_load_bitmap("Sprites/monoDerecha.png");
     sprites.bananaMono = al_load_bitmap("Sprites/bananaMono.png");
+    sprites.cascarabananaMono = al_load_bitmap("Sprites/cascarabananaMono.png");
 
     //Perro
 
@@ -1860,6 +1892,7 @@ void destruirSprites()
 
     al_destroy_bitmap(sprites.monoDerecha);
     al_destroy_bitmap(sprites.bananaMono);
+    al_destroy_bitmap(sprites.cascarabananaMono);
 
     al_destroy_bitmap(sprites.llave);
     al_destroy_bitmap(sprites.puerta);
@@ -2148,10 +2181,13 @@ void lanzarBanana(int mono)
         if(!enemigos[mono].balas[i].activa)
         {
             enemigos[mono].balas[i].activa = true;
+            enemigos[mono].balas[i].tipo = BALA_MONO;
 
             //Banana sale del mono
             enemigos[mono].balas[i].x = enemigos[mono].x / CELL;
             enemigos[mono].balas[i].y = enemigos[mono].y / CELL;
+            enemigos[mono].balas[i].rango = RANGO_BANANA_MONO * CELL;
+            enemigos[mono].balas[i].distancia = 0;
 
             //Destino cabeza de la serpiente
             enemigos[mono].balas[i].destinoX = serpiente.segmentos[0].x;
@@ -2284,7 +2320,7 @@ void disparar()
             serpiente.balas[i].activa = true;
             serpiente.balas[i].tipo = BALA_SERPIENTE;
             serpiente.balas[i].distancia = 0;
-            serpiente.balas[i].rango = 15;
+            serpiente.balas[i].rango = RANGO_BALA_SERPIENTE * CELL;
 
             serpiente.balas[i].x = serpiente.segmentos[0].x * CELL + CELL/2;
             serpiente.balas[i].y = serpiente.segmentos[0].y * CELL + CELL/2;
