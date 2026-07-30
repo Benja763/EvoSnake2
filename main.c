@@ -2,6 +2,8 @@
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_image.h>
+#include <allegro5/allegro_audio.h>
+#include <allegro5/allegro_acodec.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -25,7 +27,7 @@
 #define BALA_SERPIENTE 1
 #define BALA_MONO 2
 #define RANGO_BALA_SERPIENTE 6
-#define RANGO_BANANA_MONO 20
+#define RANGO_BANANA_MONO 6
 #define CASCARA_BANANA 3
 
 typedef struct
@@ -147,8 +149,6 @@ typedef struct
 
 } Enemigo;
 
-//Modificar y generar una sola struct de balas, agregar un tipo bala
-
 typedef struct
 {
     //Menu
@@ -218,12 +218,18 @@ typedef struct
 
 typedef struct
 {
+    ALLEGRO_SAMPLE *musicaMenu;
+} Sonidos;
+
+typedef struct
+{
     char mapa[N][M];
 
     Serpiente serpiente;
     Juego juego;
     Fase fase;
     Sprites sprites;
+    Sonidos sonidos;
 
     Enemigo enemigos[MAX_ENEMIGOS];
     Comida comidas[MAX_COMIDAS];
@@ -245,6 +251,8 @@ void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font);
 void cargarMapa(EstadoJuego *estado, char nombreArchivo[]);
 void cargarSprites(EstadoJuego *estado);
 void destruirSprites(EstadoJuego *estado);
+void cargarSonidos(EstadoJuego *estado);
+void destruirSonidos(EstadoJuego *estado);
 void cargarRankingSegmentos(EstadoJuego *estado);
 void guardarRankingSegmentos(EstadoJuego *estado);
 void cargarRankingTiempo(EstadoJuego *estado);
@@ -278,6 +286,10 @@ int main()
     al_init_font_addon();
     al_init_image_addon();
 
+    al_install_audio();
+    al_init_acodec_addon();
+    al_reserve_samples(16);
+
     ALLEGRO_DISPLAY *display =
         al_create_display(WIDTH, HEIGHT);
 
@@ -291,6 +303,7 @@ int main()
         al_create_builtin_font();
 
     cargarSprites(&estado);
+    cargarSonidos(&estado);
     cargarRankingSegmentos(&estado);
     cargarRankingTiempo(&estado);
 
@@ -298,6 +311,14 @@ int main()
     estado.juego.opcionMenu = 0;
     estado.juego.largoNombre = 0;
     estado.juego.nombreJugador[0] = '\0';
+
+    al_play_sample(
+        estado.sonidos.musicaMenu,
+        1.0,
+        0.0,
+        1.0,
+        ALLEGRO_PLAYMODE_LOOP,
+        NULL);
 
     al_install_keyboard();
 
@@ -445,6 +466,8 @@ int main()
                 {
                     if(estado.juego.largoNombre > 0)
                     {
+                        al_stop_samples();
+
                         reiniciarJuego(&estado);
                         estado.juego.pantalla = 3;
                     }
@@ -478,6 +501,7 @@ int main()
     }
 
     destruirSprites(&estado);
+    destruirSonidos(&estado);
 
     al_destroy_font(font);
     al_destroy_display(display);
@@ -608,21 +632,31 @@ void actualizarJuego(EstadoJuego *estado)
             {
                 estado->enemigos[i].balas[j].x += estado->enemigos[i].balas[j].velocidadX;
                 estado->enemigos[i].balas[j].y += estado->enemigos[i].balas[j].velocidadY;
-                estado->enemigos[i].balas[j].distancia +=
-                sqrt(estado->enemigos[i].balas[j].velocidadX * estado->enemigos[i].balas[j].velocidadX +
-                     estado->enemigos[i].balas[j].velocidadY * estado->enemigos[i].balas[j].velocidadY);
+                if(estado->enemigos[i].balas[j].velocidadX != 0 ||
+                   estado->enemigos[i].balas[j].velocidadY != 0)
+                {
+                        estado->enemigos[i].balas[j].distancia +=
+                            sqrt(estado->enemigos[i].balas[j].velocidadX * estado->enemigos[i].balas[j].velocidadX +
+                            estado->enemigos[i].balas[j].velocidadY * estado->enemigos[i].balas[j].velocidadY);
+                }
 
                 if(estado->enemigos[i].balas[j].distancia >= estado->enemigos[i].balas[j].rango)
                 {
-                    estado->enemigos[i].balas[j].activa = false;
-                    continue;
+                    estado->enemigos[i].balas[j].velocidadX = 0;
+                    estado->enemigos[i].balas[j].velocidadY = 0;
+
+                    estado->enemigos[i].balas[j].distancia =
+                    estado->enemigos[i].balas[j].rango;
                 }
 
                 if(fabs(estado->enemigos[i].balas[j].x - estado->enemigos[i].balas[j].destinoX) < 0.2 &&
                    fabs(estado->enemigos[i].balas[j].y - estado->enemigos[i].balas[j].destinoY) < 0.2)
                 {
-                    estado->enemigos[i].balas[j].activa = false;
-                    continue;
+                    estado->enemigos[i].balas[j].x = estado->enemigos[i].balas[j].destinoX;
+                    estado->enemigos[i].balas[j].y = estado->enemigos[i].balas[j].destinoY;
+
+                    estado->enemigos[i].balas[j].velocidadX = 0;
+                    estado->enemigos[i].balas[j].velocidadY = 0;
                 }
 
                 int bananaX = estado->enemigos[i].balas[j].x / CELL;
@@ -1641,14 +1675,11 @@ void cargarMapa(EstadoJuego *estado, char nombreArchivo[])
 
             if(estado->mapa[i][j] == 'S')
             {
-                estado->serpiente.segmentos[0].x = j;
-                estado->serpiente.segmentos[0].y = i;
-
-                estado->serpiente.segmentos[1].x = j-1;
-                estado->serpiente.segmentos[1].y = i;
-
-                estado->serpiente.segmentos[2].x = j-2;
-                estado->serpiente.segmentos[2].y = i;
+                for(int k = 0; k < estado->serpiente.tamano; k++)
+                {
+                    estado->serpiente.segmentos[k].x = j - k;
+                    estado->serpiente.segmentos[k].y = i;
+                }
 
                 estado->mapa[i][j] = ' ';
             }
@@ -1947,6 +1978,23 @@ void destruirSprites(EstadoJuego *estado)
 
     al_destroy_bitmap(estado->sprites.volcanPiso);
     al_destroy_bitmap(estado->sprites.volcanMuro);
+}
+
+void cargarSonidos(EstadoJuego *estado)
+{
+    estado->sonidos.musicaMenu =
+        al_load_sample("Sonidos/musicaMenu.ogg");
+
+    if(!estado->sonidos.musicaMenu)
+    {
+        printf("Error cargando musicaMenu.ogg\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void destruirSonidos(EstadoJuego *estado)
+{
+    al_destroy_sample(estado->sonidos.musicaMenu);
 }
 
 void cargarRankingSegmentos(EstadoJuego *estado)
