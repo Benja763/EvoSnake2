@@ -1,10 +1,10 @@
+a 9
 Benja 5
-Benja 4
 Felipe 4
-l 2
+Benja 4
 a 2
-b 1
+l 2
 s 1
-a 0
+b 1
 a 0
 a 0

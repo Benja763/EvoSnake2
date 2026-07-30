@@ -99,10 +99,14 @@ typedef struct
     int pantalla;
     int opcionMenu;
 
+    int invulnerable;
+    int tiempoInvulnerable;
+
 } Juego;
 
 typedef struct
 {
+
     char nombre[20];
     int dato;
 
@@ -110,6 +114,7 @@ typedef struct
 
 typedef struct
 {
+
     int x;
     int y;
     bool activa;
@@ -118,6 +123,7 @@ typedef struct
 
 typedef struct
 {
+
     int numero;
     int comidasComidas;
     int comidas[MAX_FASES];
@@ -126,6 +132,7 @@ typedef struct
 
 typedef struct
 {
+
     float x;
     float y;
 
@@ -587,9 +594,22 @@ void actualizarJuego(EstadoJuego *estado)
                 if(enemigoX == estado->serpiente.segmentos[k].x &&
                    enemigoY == estado->serpiente.segmentos[k].y)
                 {
-                    registrarRanking(estado);
-                    reiniciarJuego(estado);
-                    return;
+                    if(!estado->juego.invulnerable)
+                    {
+                        if(estado->serpiente.tamano > 2)
+                        {
+                            estado->serpiente.tamano--;
+
+                            estado->juego.invulnerable = 1;
+                            estado->juego.tiempoInvulnerable = 16; // 2 segundos
+                        }
+                        else
+                        {
+                            registrarRanking(estado);
+                            reiniciarJuego(estado);
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -667,15 +687,21 @@ void actualizarJuego(EstadoJuego *estado)
                     if(bananaX == estado->serpiente.segmentos[k].x &&
                        bananaY == estado->serpiente.segmentos[k].y)
                     {
-                        if(estado->serpiente.tamano > 2)
+                        if(!estado->juego.invulnerable)
                         {
-                            estado->serpiente.tamano--;
-                        }
-                        else
-                        {
-                            registrarRanking(estado);
-                            reiniciarJuego(estado);
-                            return;
+                            if(estado->serpiente.tamano > 2)
+                            {
+                                estado->serpiente.tamano--;
+
+                                estado->juego.invulnerable = 1;
+                                estado->juego.tiempoInvulnerable = 16;
+                            }
+                            else
+                            {
+                                registrarRanking(estado);
+                                reiniciarJuego(estado);
+                                return;
+                            }
                         }
 
                         estado->enemigos[i].balas[j].activa = false;
@@ -926,6 +952,16 @@ void actualizarJuego(EstadoJuego *estado)
     if(estado->juego.tiempoMensaje > 0)
     {
         estado->juego.tiempoMensaje--;
+    }
+
+    if(estado->juego.invulnerable)
+    {
+        estado->juego.tiempoInvulnerable--;
+
+        if(estado->juego.tiempoInvulnerable <= 0)
+        {
+            estado->juego.invulnerable = 0;
+        }
     }
 }
 
@@ -1404,138 +1440,149 @@ void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font)
         }
     }
 
-    for(int i = 0; i < estado->serpiente.tamano; i++)
+    bool dibujarSerpiente = true;
+
+    if(estado->juego.invulnerable)
     {
-        if(i == 0)
+        dibujarSerpiente =
+        (estado->juego.tiempoInvulnerable % 2 == 0);
+    }
+
+    if(dibujarSerpiente)
+    {
+        for(int i = 0; i < estado->serpiente.tamano; i++)
         {
-            ALLEGRO_BITMAP *cabeza;
+            if(i == 0)
+            {
+                ALLEGRO_BITMAP *cabeza;
 
-            if(estado->serpiente.dx == 1)
-                cabeza = estado->sprites.cabezaDerecha;
-            else if(estado->serpiente.dx == -1)
-                cabeza = estado->sprites.cabezaIzquierda;
-            else if(estado->serpiente.dy == -1)
-                cabeza = estado->sprites.cabezaArriba;
-            else
-                cabeza = estado->sprites.cabezaAbajo;
+                if(estado->serpiente.dx == 1)
+                    cabeza = estado->sprites.cabezaDerecha;
+                else if(estado->serpiente.dx == -1)
+                    cabeza = estado->sprites.cabezaIzquierda;
+                else if(estado->serpiente.dy == -1)
+                    cabeza = estado->sprites.cabezaArriba;
+                else
+                    cabeza = estado->sprites.cabezaAbajo;
 
-            al_draw_scaled_bitmap(
-                cabeza,
-                0,
-                0,
-                64,
-                64,
-                estado->serpiente.segmentos[i].x * CELL,
-                estado->serpiente.segmentos[i].y * CELL,
-                CELL,
-                CELL,
-                0);
-        }
-        else if(i == estado->serpiente.tamano - 1)
-        {
-            ALLEGRO_BITMAP *cola;
+                al_draw_scaled_bitmap(
+                    cabeza,
+                    0,
+                    0,
+                    64,
+                    64,
+                    estado->serpiente.segmentos[i].x * CELL,
+                    estado->serpiente.segmentos[i].y * CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(i == estado->serpiente.tamano - 1)
+            {
+                ALLEGRO_BITMAP *cola;
 
-            if(estado->serpiente.tamano == 1)
-                cola = estado->sprites.colaAbajo;
+                if(estado->serpiente.tamano == 1)
+                    cola = estado->sprites.colaAbajo;
+                else
+                {
+                    int dx = estado->serpiente.segmentos[i].x - estado->serpiente.segmentos[i-1].x;
+                    int dy = estado->serpiente.segmentos[i].y - estado->serpiente.segmentos[i-1].y;
+
+                    if(dx == 0 && dy == 0)
+                    {            
+                        if(estado->serpiente.dx == 1)
+                            cola = estado->sprites.colaDerecha;
+                        else if(estado->serpiente.dx == -1)
+                            cola = estado->sprites.colaIzquierda;
+                        else if(estado->serpiente.dy == 1)
+                            cola = estado->sprites.colaAbajo;
+                        else
+                            cola = estado->sprites.colaArriba;
+                    }
+                    else if(dx == 1)
+                    {
+                        cola = estado->sprites.colaDerecha;
+                    }
+                    else if(dx == -1)
+                    {
+                        cola = estado->sprites.colaIzquierda;
+                    }
+                    else if(dy == 1)
+                    {
+                        cola = estado->sprites.colaAbajo;
+                    }
+                    else
+                    {
+                        cola = estado->sprites.colaArriba;
+                    }
+                }
+
+                al_draw_scaled_bitmap(
+                    cola,
+                    0,
+                    0,
+                    64,
+                    64,
+                    estado->serpiente.segmentos[i].x*CELL,
+                    estado->serpiente.segmentos[i].y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
             else
             {
-                int dx = estado->serpiente.segmentos[i].x - estado->serpiente.segmentos[i-1].x;
-                int dy = estado->serpiente.segmentos[i].y - estado->serpiente.segmentos[i-1].y;
+                int dx1 = estado->serpiente.segmentos[i].x - estado->serpiente.segmentos[i-1].x;
+                int dy1 = estado->serpiente.segmentos[i].y - estado->serpiente.segmentos[i-1].y;
 
-                if(dx == 0 && dy == 0)
-                {            
-                    if(estado->serpiente.dx == 1)
-                        cola = estado->sprites.colaDerecha;
-                    else if(estado->serpiente.dx == -1)
-                        cola = estado->sprites.colaIzquierda;
-                    else if(estado->serpiente.dy == 1)
-                        cola = estado->sprites.colaAbajo;
-                    else
-                        cola = estado->sprites.colaArriba;
-                }
-                else if(dx == 1)
+                int dx2 = estado->serpiente.segmentos[i+1].x - estado->serpiente.segmentos[i].x;
+                int dy2 = estado->serpiente.segmentos[i+1].y - estado->serpiente.segmentos[i].y;
+
+                ALLEGRO_BITMAP *imagen = estado->sprites.cuerpoHorizontal;
+
+                // Cuerpo recto
+
+                if(dy1 == 0 && dy2 == 0)
                 {
-                    cola = estado->sprites.colaDerecha;
+                    // Se mueve de izquierda a derecha
+                    imagen = estado->sprites.cuerpoHorizontal;
                 }
-                else if(dx == -1)
+                else if(dx1 == 0 && dx2 == 0)
                 {
-                    cola = estado->sprites.colaIzquierda;
+                    // Se mueve de arriba a abajo
+                    imagen = estado->sprites.cuerpoVertical;
                 }
-                else if(dy == 1)
+
+                // Curvas
+
+                else if((dx1==1 && dy2==1) || (dy1==-1 && dx2==-1))
                 {
-                    cola = estado->sprites.colaAbajo;
+                    imagen = estado->sprites.curva2;
+                }
+                else if((dx1==-1 && dy2==1) || (dy1==-1 && dx2==1))
+                {
+                    imagen = estado->sprites.curva1;
+                }
+                else if((dx1==-1 && dy2==-1) || (dy1==1 && dx2==1))
+                {
+                    imagen = estado->sprites.curva3;
                 }
                 else
                 {
-                    cola = estado->sprites.colaArriba;
+                    imagen = estado->sprites.curva4;
                 }
+
+                al_draw_scaled_bitmap(
+                    imagen,
+                    0,
+                    0,
+                    64,
+                    64,
+                    estado->serpiente.segmentos[i].x*CELL,
+                    estado->serpiente.segmentos[i].y*CELL,
+                    CELL,
+                    CELL,
+                    0);
             }
-
-            al_draw_scaled_bitmap(
-                cola,
-                0,
-                0,
-                64,
-                64,
-                estado->serpiente.segmentos[i].x*CELL,
-                estado->serpiente.segmentos[i].y*CELL,
-                CELL,
-                CELL,
-                0);
-        }
-        else
-        {
-            int dx1 = estado->serpiente.segmentos[i].x - estado->serpiente.segmentos[i-1].x;
-            int dy1 = estado->serpiente.segmentos[i].y - estado->serpiente.segmentos[i-1].y;
-
-            int dx2 = estado->serpiente.segmentos[i+1].x - estado->serpiente.segmentos[i].x;
-            int dy2 = estado->serpiente.segmentos[i+1].y - estado->serpiente.segmentos[i].y;
-
-            ALLEGRO_BITMAP *imagen = estado->sprites.cuerpoHorizontal;
-
-            // Cuerpo recto
-
-            if(dy1 == 0 && dy2 == 0)
-            {
-                // Se mueve de izquierda a derecha
-                imagen = estado->sprites.cuerpoHorizontal;
-            }
-            else if(dx1 == 0 && dx2 == 0)
-            {
-                // Se mueve de arriba a abajo
-                imagen = estado->sprites.cuerpoVertical;
-            }
-
-            // Curvas
-
-            else if((dx1==1 && dy2==1) || (dy1==-1 && dx2==-1))
-            {
-                imagen = estado->sprites.curva2;
-            }
-            else if((dx1==-1 && dy2==1) || (dy1==-1 && dx2==1))
-            {
-                imagen = estado->sprites.curva1;
-            }
-            else if((dx1==-1 && dy2==-1) || (dy1==1 && dx2==1))
-            {
-                imagen = estado->sprites.curva3;
-            }
-            else
-            {
-                imagen = estado->sprites.curva4;
-            }
-
-            al_draw_scaled_bitmap(
-                imagen,
-                0,
-                0,
-                64,
-                64,
-                estado->serpiente.segmentos[i].x*CELL,
-                estado->serpiente.segmentos[i].y*CELL,
-                CELL,
-                CELL,
-                0);
         }
     }           
     //Nivel en Pantalla
@@ -2080,28 +2127,54 @@ void guardarRankingTiempo(EstadoJuego *estado)
 
 void registrarRanking(EstadoJuego *estado)
 {
-    if(estado->cantidadRankingSegmentos < MAX_RANKING)
+    if(estado->cantidadRankingSegmentos < MAX_RANKING ||
+       estado->juego.puntaje > estado->rankingSegmentos[MAX_RANKING - 1].dato)
     {
-        strcpy(
-            estado->rankingSegmentos[estado->cantidadRankingSegmentos].nombre,
-            estado->juego.nombreJugador);
+        if(estado->cantidadRankingSegmentos < MAX_RANKING)
+        {
+            strcpy(
+                estado->rankingSegmentos[estado->cantidadRankingSegmentos].nombre,
+                estado->juego.nombreJugador);
 
-        estado->rankingSegmentos[estado->cantidadRankingSegmentos].dato =
-            estado->juego.puntaje;
+                estado->rankingSegmentos[estado->cantidadRankingSegmentos].dato =
+                estado->juego.puntaje;
 
-        estado->cantidadRankingSegmentos++;
+                estado->cantidadRankingSegmentos++;
+        }
+        else
+        {
+            strcpy(
+                estado->rankingSegmentos[MAX_RANKING - 1].nombre,
+                estado->juego.nombreJugador);
+
+                estado->rankingSegmentos[MAX_RANKING - 1].dato =
+                estado->juego.puntaje;
+        }
     }
 
-    if(estado->cantidadRankingTiempo < MAX_RANKING)
+    if(estado->cantidadRankingTiempo < MAX_RANKING ||
+       estado->juego.tiempo < estado->rankingTiempo[MAX_RANKING - 1].dato)
     {
-        strcpy(
-            estado->rankingTiempo[estado->cantidadRankingTiempo].nombre,
-            estado->juego.nombreJugador);
+        if(estado->cantidadRankingTiempo < MAX_RANKING)
+        {
+            strcpy(
+                estado->rankingTiempo[estado->cantidadRankingTiempo].nombre,
+                estado->juego.nombreJugador);
 
-        estado->rankingTiempo[estado->cantidadRankingTiempo].dato =
-            estado->juego.tiempo;
+                estado->rankingTiempo[estado->cantidadRankingTiempo].dato =
+                estado->juego.tiempo;
 
-        estado->cantidadRankingTiempo++;
+                estado->cantidadRankingTiempo++;
+        }
+        else
+        {
+            strcpy(
+                estado->rankingTiempo[MAX_RANKING - 1].nombre,
+                estado->juego.nombreJugador);
+
+                estado->rankingTiempo[MAX_RANKING - 1].dato =
+                estado->juego.tiempo;
+        }
     }
 
     ordenarRankingSegmentos(estado);
@@ -2350,13 +2423,16 @@ void reiniciarJuego(EstadoJuego *estado)
     estado->juego.tiempo = 0;
     estado->juego.contadorTiempo = 0;
 
+    estado->juego.invulnerable = 0;
+    estado->juego.tiempoInvulnerable = 0;
+
     estado->fase.numero = 1;
     estado->fase.comidasComidas = 0;
 
     estado->serpiente.dx = 1;
     estado->serpiente.dy = 0;
 
-    estado->juego.nivel = 1;
+    estado->juego.nivel = 5;
 
     sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
 
