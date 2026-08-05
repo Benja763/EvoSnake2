@@ -71,6 +71,8 @@ typedef struct
 
     Bala balas[MAX_BALAS];
 
+    int municion;
+
 } Serpiente;
 
 typedef struct
@@ -101,6 +103,11 @@ typedef struct
 
     int invulnerable;
     int tiempoInvulnerable;
+
+    int editor;
+    int cursorX;
+    int cursorY;
+    char bloqueSeleccionado;
 
 } Juego;
 
@@ -255,6 +262,7 @@ void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarIngresoNombre(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font);
+void Editor(EstadoJuego *estado);
 void cargarMapa(EstadoJuego *estado, char nombreArchivo[]);
 void cargarSprites(EstadoJuego *estado);
 void destruirSprites(EstadoJuego *estado);
@@ -441,8 +449,14 @@ int main()
                     break;
 
                 case ALLEGRO_KEY_SPACE:
-                    disparar(&estado);
-                    break;
+
+                    if(estado.serpiente.municion > 0)
+                    {
+                        disparar(&estado);
+                        estado.serpiente.municion--;
+                    }
+
+                break;
             }
         }
 
@@ -826,6 +840,12 @@ void actualizarJuego(EstadoJuego *estado)
 
             estado->serpiente.tamano++;
             estado->juego.puntaje++;
+
+            if(estado->serpiente.municion < 5)
+            {
+                estado->serpiente.municion++;
+            }
+
             estado->fase.comidasComidas++;
             comidaComida = 1;
             break;
@@ -1693,6 +1713,22 @@ void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font)
             ALLEGRO_ALIGN_CENTER,
             estado->juego.mensaje);
     }
+
+    //Municion en Pantalla
+
+    char textoBalas[50];
+
+    sprintf(textoBalas,
+    "Balas: %d",
+    estado->serpiente.municion);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        110,
+        0,
+        textoBalas);
 }
 
 void cargarMapa(EstadoJuego *estado, char nombreArchivo[])
@@ -2434,6 +2470,8 @@ void reiniciarJuego(EstadoJuego *estado)
 
     estado->juego.nivel = 1;
 
+    estado->serpiente.municion = 5;
+
     sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
 
     strcpy(estado->juego.nombreNivel, "Pradera");
@@ -2459,6 +2497,11 @@ void reiniciarJuego(EstadoJuego *estado)
             estado->enemigos[i].balas[j].activa = false;
         }
     }
+
+    estado->juego.editor = 0;
+    estado->juego.cursorX = 0;
+    estado->juego.cursorY = 0;
+    estado->juego.bloqueSeleccionado = '#';
 }
 
 void disparar(EstadoJuego *estado)

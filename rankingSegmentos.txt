@@ -1,10 +1,10 @@
 Benja 14
+a 12
+Benja 10
 Benja 9
+a 7
 Benja 5
+a 4
 Benja 2
 Benja 1
-Benja 0
-Benja 0
-Benja 0
-Benja 0
-Benja 0
+a 1
