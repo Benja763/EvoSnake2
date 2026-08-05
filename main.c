@@ -601,7 +601,7 @@ void actualizarJuego(EstadoJuego *estado)
                             estado->serpiente.tamano--;
 
                             estado->juego.invulnerable = 1;
-                            estado->juego.tiempoInvulnerable = 16; // 2 segundos
+                            estado->juego.tiempoInvulnerable = 16;
                         }
                         else
                         {
@@ -2432,7 +2432,7 @@ void reiniciarJuego(EstadoJuego *estado)
     estado->serpiente.dx = 1;
     estado->serpiente.dy = 0;
 
-    estado->juego.nivel = 5;
+    estado->juego.nivel = 1;
 
     sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
 
