@@ -104,6 +104,8 @@ typedef struct
     int invulnerable;
     int tiempoInvulnerable;
 
+    bool mapaEditor;
+
 } Juego;
 
 typedef struct
@@ -276,6 +278,7 @@ void ordenarRankingSegmentos(EstadoJuego *estado);
 void ordenarRankingTiempo(EstadoJuego *estado);
 void registrarRanking(EstadoJuego *estado);
 void reiniciarJuego(EstadoJuego *estado);
+void reiniciarJuegoEditor(EstadoJuego *estado);
 void generarComidas(EstadoJuego *estado, int cantidad);
 void generarEnemigo(EstadoJuego *estado, int i);
 void lanzarBanana(EstadoJuego *estado, int mono);
@@ -429,6 +432,16 @@ int main()
             {
                 switch(ev.keyboard.keycode)
                 {
+                    case ALLEGRO_KEY_F1:
+
+                        guardarMapaEditor(&estado);
+                        
+                        reiniciarJuego(&estado);
+                        cargarMapa(&estado, "NivelesCreados/editor.txt");
+                        estado.juego.pantalla = 3;
+
+                        break;
+
                     case ALLEGRO_KEY_F5:
 
                         guardarMapaEditor(&estado);
@@ -604,6 +617,7 @@ int main()
                     {
                         al_stop_samples();
 
+                        estado.juego.mapaEditor = 0;
                         reiniciarJuego(&estado);
                         estado.juego.pantalla = 3;
                     }
@@ -2608,9 +2622,13 @@ void reiniciarJuego(EstadoJuego *estado)
 
     estado->serpiente.municion = 5;
 
+    estado->juego.mapaEditor = 0;
+
     sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
 
     strcpy(estado->juego.nombreNivel, "Pradera");
+
+    cargarMapa(estado, estado->juego.archivoNivel);
 
     for(int i = 0; i < MAX_COMIDAS; i++)
     {
@@ -2621,8 +2639,6 @@ void reiniciarJuego(EstadoJuego *estado)
     {
         estado->serpiente.balas[i].activa = false;
     }
-
-    cargarMapa(estado, estado->juego.archivoNivel);
 
     generarComidas(estado, estado->fase.comidas[estado->fase.numero - 1]);
 
@@ -2902,7 +2918,7 @@ void guardarMapaEditor(EstadoJuego *estado)
     if(archivo == NULL)
         return;
 
-    fprintf(archivo, "5 8 10\n");
+    /*fprintf(archivo, "5 8 10\n");*/
     
     for(int y=0; y<N; y++)
     {
