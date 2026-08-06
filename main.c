@@ -104,11 +104,6 @@ typedef struct
     int invulnerable;
     int tiempoInvulnerable;
 
-    int editor;
-    int cursorX;
-    int cursorY;
-    char bloqueSeleccionado;
-
 } Juego;
 
 typedef struct
@@ -254,6 +249,9 @@ typedef struct
     int cantidadRankingSegmentos;
     int cantidadRankingTiempo;
     int cantidadEnemigos;
+    int cursorX;
+    int cursorY;
+    char bloqueSeleccionado;
 
 } EstadoJuego;
 
@@ -262,7 +260,9 @@ void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarIngresoNombre(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font);
-void Editor(EstadoJuego *estado);
+void dibujarEditor(EstadoJuego *estado, ALLEGRO_FONT *font);
+void guardarMapaEditor(EstadoJuego *estado);
+void limpiarMapaEditor(EstadoJuego *estado);
 void cargarMapa(EstadoJuego *estado, char nombreArchivo[]);
 void cargarSprites(EstadoJuego *estado);
 void destruirSprites(EstadoJuego *estado);
@@ -374,7 +374,7 @@ int main()
                         estado.juego.opcionMenu--;
                         
                         if(estado.juego.opcionMenu < 0)
-                            estado.juego.opcionMenu = 2;
+                            estado.juego.opcionMenu = 3;
 
                         break;
 
@@ -382,7 +382,7 @@ int main()
 
                         estado.juego.opcionMenu++;
 
-                        if(estado.juego.opcionMenu > 2)
+                        if(estado.juego.opcionMenu > 3)
                             estado.juego.opcionMenu = 0;
 
                         break;
@@ -393,6 +393,17 @@ int main()
                             estado.juego.pantalla = 1;
 
                         else if(estado.juego.opcionMenu == 1)
+                        {
+                            estado.juego.pantalla = 4;
+
+                            estado.cursorX = 1;
+                            estado.cursorY = 1;
+
+                            estado.bloqueSeleccionado = '#';
+
+                            limpiarMapaEditor(&estado);
+                        }
+                        else if(estado.juego.opcionMenu == 2)
                             estado.juego.pantalla = 2;
 
                         else
@@ -409,6 +420,110 @@ int main()
                 if(ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
                 {
                     estado.juego.pantalla = 0;
+                }
+
+                continue;
+            }
+
+            if(estado.juego.pantalla == 4)
+            {
+                switch(ev.keyboard.keycode)
+                {
+                    case ALLEGRO_KEY_F5:
+
+                        guardarMapaEditor(&estado);
+                        break;
+
+                    case ALLEGRO_KEY_ESCAPE:
+
+                        estado.juego.pantalla = 0;
+                        break;
+
+                    case ALLEGRO_KEY_LEFT:
+
+                        if(estado.cursorX > 0)
+                        {
+                            estado.cursorX--;
+                        }
+
+                        break;
+
+                    case ALLEGRO_KEY_RIGHT:
+
+                        if(estado.cursorX < M - 1)
+                        {
+                            estado.cursorX++;
+                        }
+
+                        break;
+
+                    case ALLEGRO_KEY_UP:
+
+                        if(estado.cursorY > 0)
+                        {
+                            estado.cursorY--;
+                        }
+
+                        break;
+
+                    case ALLEGRO_KEY_DOWN:
+
+                        if(estado.cursorY < N - 1)
+                        {
+                            estado.cursorY++;
+                        }
+
+                        break;
+
+                    case ALLEGRO_KEY_1:
+
+                        estado.bloqueSeleccionado = '#';
+                        break;
+
+                    case ALLEGRO_KEY_2:
+
+                        estado.bloqueSeleccionado = 'S';
+                        break;
+
+                    case ALLEGRO_KEY_3:
+
+                        estado.bloqueSeleccionado = 'L';
+                        break;
+
+                    case ALLEGRO_KEY_4:
+
+                        estado.bloqueSeleccionado = 'E';
+                        break;
+
+                    case ALLEGRO_KEY_5:
+
+                        estado.bloqueSeleccionado = 'G';
+                        break;
+
+                    case ALLEGRO_KEY_6:
+
+                        estado.bloqueSeleccionado = 'P';
+                        break;
+
+                    case ALLEGRO_KEY_7:
+
+                        estado.bloqueSeleccionado = 'M';
+                        break;
+
+                    case ALLEGRO_KEY_8:
+
+                        estado.bloqueSeleccionado = 'C';
+                        break;
+
+                    case ALLEGRO_KEY_0:
+
+                        estado.bloqueSeleccionado = ' ';
+                        break;
+
+                    case ALLEGRO_KEY_SPACE:
+
+                        estado.mapa[estado.cursorY][estado.cursorX] = estado.bloqueSeleccionado;
+                        break;
                 }
 
                 continue;
@@ -515,6 +630,10 @@ int main()
             else if(estado.juego.pantalla == 3)
             {
                 dibujarJuego(&estado, font);
+            }
+            else if(estado.juego.pantalla == 4)
+            {
+                dibujarEditor(&estado, font);
             }
 
             al_flip_display();
@@ -1032,7 +1151,7 @@ void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font)
         WIDTH/2,
         240,
         ALLEGRO_ALIGN_CENTER,
-        "Ranking");
+        "Editor de Mapas");
 
     if(estado->juego.opcionMenu == 2)
     {
@@ -1048,6 +1167,23 @@ void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font)
         color,
         WIDTH/2,
         280,
+        ALLEGRO_ALIGN_CENTER,
+        "Ranking");
+
+    if(estado->juego.opcionMenu == 3)
+    {
+        color = al_map_rgb(255,255,0);
+    }
+    else
+    {
+        color = al_map_rgb(255,255,255);
+    }
+
+    al_draw_text(
+        font,
+        color,
+        WIDTH/2,
+        320,
         ALLEGRO_ALIGN_CENTER,
         "Salir");
 }
@@ -2497,11 +2633,6 @@ void reiniciarJuego(EstadoJuego *estado)
             estado->enemigos[i].balas[j].activa = false;
         }
     }
-
-    estado->juego.editor = 0;
-    estado->juego.cursorX = 0;
-    estado->juego.cursorY = 0;
-    estado->juego.bloqueSeleccionado = '#';
 }
 
 void disparar(EstadoJuego *estado)
@@ -2576,4 +2707,228 @@ int hayComida(EstadoJuego *estado, int x, int y)
     }
 
     return 0;
+}
+
+void dibujarEditor(EstadoJuego *estado, ALLEGRO_FONT *font)
+{
+    al_clear_to_color(al_map_rgb(30,30,30));
+
+    for(int y=0;y<N;y++)
+    {
+        for(int x=0;x<M;x++)
+        {
+            al_draw_filled_rectangle(
+                x*CELL,
+                y*CELL,
+                x*CELL+CELL,
+                y*CELL+CELL,
+                al_map_rgb(60,60,60));
+
+            char bloque = estado->mapa[y][x];
+
+            if(bloque == '#')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.arbusto,
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'L')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.llave,
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'E')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.puerta,
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'G')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.gatoSprite[0],
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'P')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.perroSprite[0],
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'M')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.monoDerecha,
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'C')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.frutas[0],
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+            else if(bloque == 'S')
+            {
+                al_draw_scaled_bitmap(
+                    estado->sprites.cabezaDerecha,
+                    0, 0, 64, 64,
+                    x*CELL,
+                    y*CELL,
+                    CELL,
+                    CELL,
+                    0);
+            }
+        }
+    }
+
+    al_draw_rectangle(
+        estado->cursorX*CELL,
+        estado->cursorY*CELL,
+        estado->cursorX*CELL+CELL,
+        estado->cursorY*CELL+CELL,
+        al_map_rgb(255,0,0),
+        2);
+
+    for(int y = 0; y < N; y++)
+    {
+        for(int x = 0; x < M; x++)
+        {
+            al_draw_rectangle(
+                x * CELL,
+                y * CELL,
+                x * CELL + CELL,
+                y * CELL + CELL,
+                al_map_rgb(80,80,80),
+                1);
+        }
+    }
+
+    al_draw_rectangle(
+        estado->cursorX * CELL,
+        estado->cursorY * CELL,
+        estado->cursorX * CELL + CELL,
+        estado->cursorY * CELL + CELL,
+        al_map_rgb(255,255,0),
+        3);
+
+    char texto[50];
+
+    if(estado->bloqueSeleccionado == '#')
+    {    
+        sprintf(texto,"Bloque: MURO");
+    }
+    else if(estado->bloqueSeleccionado == 'L')
+    {
+        sprintf(texto,"Bloque: LLAVE");
+    }
+    else if(estado->bloqueSeleccionado == 'E')
+    {
+        sprintf(texto,"Bloque: PUERTA");
+    }
+    else if(estado->bloqueSeleccionado == 'S')
+    {
+        sprintf(texto,"Bloque: SERPIENTE");
+    }
+    else if(estado->bloqueSeleccionado == 'G')
+    {
+        sprintf(texto,"Bloque: GATO");
+    }
+    else if(estado->bloqueSeleccionado == 'P')
+    {
+        sprintf(texto,"Bloque: PERRO");
+    }
+    else if(estado->bloqueSeleccionado == 'M')
+    {
+        sprintf(texto,"Bloque: MONO");
+    }
+    else if(estado->bloqueSeleccionado == 'C')
+    {
+        sprintf(texto,"Bloque: COMIDA");
+    }
+    else
+    {
+        sprintf(texto,"Bloque: VACIO");
+    }
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        10,
+        HEIGHT - 20,
+        0,
+        texto);
+}
+
+void guardarMapaEditor(EstadoJuego *estado)
+{
+    FILE *archivo = fopen("NivelesCreados/editor.txt", "w");
+
+    if(archivo == NULL)
+        return;
+
+    fprintf(archivo, "5 8 10\n");
+    
+    for(int y=0; y<N; y++)
+    {
+        for(int x=0; x<M; x++)
+        {
+            fputc(estado->mapa[y][x], archivo);
+        }
+
+        fputc('\n', archivo);
+    }
+
+    fclose(archivo);
+}
+
+void limpiarMapaEditor(EstadoJuego *estado)
+{
+    for(int y = 0; y < N; y++)
+    {
+        for(int x = 0; x < M; x++)
+        {
+            estado->mapa[y][x] = ' ';
+        }
+    }
+
+    estado->cursorX = 0;
+    estado->cursorY = 0;
+
+    estado->bloqueSeleccionado = '#';
 }
