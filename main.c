@@ -9,6 +9,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <math.h>
+#include <dirent.h>
 
 #define WIDTH 800
 #define HEIGHT 600
@@ -28,7 +29,15 @@
 #define BALA_MONO 2
 #define RANGO_BALA_SERPIENTE 6
 #define RANGO_BANANA_MONO 6
-#define CASCARA_BANANA 3
+#define MENU 0
+#define INGRESO_NOMBRE 1
+#define RANKING 2
+#define JUEGO 3
+#define EDITOR 4
+#define MENU_EDITOR 5
+#define JUGAR_MAPAS 6
+#define GUARDAR_MAPA 7
+#define MAX_MAPAS 60
 
 typedef struct
 {
@@ -98,8 +107,12 @@ typedef struct
     char nombreJugador[20];
     int largoNombre;
 
+    char nombreMapa[30];
+    int largoNombreMapa;
+
     int pantalla;
     int opcionMenu;
+    int opcionEditor;
 
     int invulnerable;
     int tiempoInvulnerable;
@@ -251,19 +264,28 @@ typedef struct
     int cantidadRankingSegmentos;
     int cantidadRankingTiempo;
     int cantidadEnemigos;
+
     int cursorX;
     int cursorY;
     char bloqueSeleccionado;
+
+    char mapas[MAX_MAPAS][50];
+    int cantidadMapas;
+    int mapaSeleccionado;
 
 } EstadoJuego;
 
 void actualizarJuego(EstadoJuego *estado);
 void dibujarMenu(EstadoJuego *estado, ALLEGRO_FONT *font);
+void dibujarMenuEditor(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarIngresoNombre(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarRanking(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarJuego(EstadoJuego *estado, ALLEGRO_FONT *font);
 void dibujarEditor(EstadoJuego *estado, ALLEGRO_FONT *font);
-void guardarMapaEditor(EstadoJuego *estado);
+void dibujarGuardarMapa(EstadoJuego *estado, ALLEGRO_FONT *font);
+void cargarMapasCreados(EstadoJuego *estado);
+void dibujarJugarMapas(EstadoJuego *estado, ALLEGRO_FONT *font);
+void guardarMapaEditor(EstadoJuego *estado, char nombre[]);
 void limpiarMapaEditor(EstadoJuego *estado);
 void cargarMapa(EstadoJuego *estado, char nombreArchivo[]);
 void cargarSprites(EstadoJuego *estado);
@@ -325,7 +347,7 @@ int main()
     cargarRankingSegmentos(&estado);
     cargarRankingTiempo(&estado);
 
-    estado.juego.pantalla = 0;
+    estado.juego.pantalla = MENU;
     estado.juego.opcionMenu = 0;
     estado.juego.largoNombre = 0;
     estado.juego.nombreJugador[0] = '\0';
@@ -368,7 +390,59 @@ int main()
 
         if(ev.type == ALLEGRO_EVENT_KEY_DOWN)
         {
-            if(estado.juego.pantalla == 0)
+            if(estado.juego.pantalla == JUGAR_MAPAS)
+            {
+                switch(ev.keyboard.keycode)
+                {
+                    case ALLEGRO_KEY_UP:
+
+                        estado.mapaSeleccionado--;
+
+                        if(estado.mapaSeleccionado < 0)
+                            estado.mapaSeleccionado = estado.cantidadMapas-1;
+
+                    break;
+
+                    case ALLEGRO_KEY_DOWN:
+
+                        estado.mapaSeleccionado++;
+
+                        if(estado.mapaSeleccionado >= estado.cantidadMapas)
+                            estado.mapaSeleccionado = 0;
+
+                    break;
+
+                    case ALLEGRO_KEY_ESCAPE:
+
+                        estado.juego.pantalla = MENU_EDITOR;
+
+                    break;
+
+                    case ALLEGRO_KEY_ENTER:
+                    {
+                        char ruta[100];
+
+                        sprintf(
+                            ruta,
+                            "NivelesCreados/%s",
+                            estado.mapas[estado.mapaSeleccionado]);
+
+                        strcpy(estado.juego.archivoNivel, ruta);
+
+                        estado.juego.mapaEditor = true;
+
+                        reiniciarJuego(&estado);
+
+                        estado.juego.pantalla = JUEGO;
+                    }
+
+                    break;
+                }
+
+                continue;
+            }
+
+            if(estado.juego.pantalla == MENU)
             {
                 switch(ev.keyboard.keycode)
                 {
@@ -393,21 +467,15 @@ int main()
                     case ALLEGRO_KEY_ENTER:
 
                         if(estado.juego.opcionMenu == 0)
-                            estado.juego.pantalla = 1;
+                            estado.juego.pantalla = INGRESO_NOMBRE;
 
                         else if(estado.juego.opcionMenu == 1)
                         {
-                            estado.juego.pantalla = 4;
-
-                            estado.cursorX = 1;
-                            estado.cursorY = 1;
-
-                            estado.bloqueSeleccionado = '#';
-
-                            limpiarMapaEditor(&estado);
+                            estado.juego.pantalla = MENU_EDITOR;
+                            estado.juego.opcionEditor = 0;
                         }
                         else if(estado.juego.opcionMenu == 2)
-                            estado.juego.pantalla = 2;
+                            estado.juego.pantalla = RANKING;
 
                         else
                             running = 0;
@@ -418,38 +486,89 @@ int main()
                 continue;
             }
 
-            if(estado.juego.pantalla == 2)
+            if(estado.juego.pantalla == MENU_EDITOR)
             {
-                if(ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
+                switch(ev.keyboard.keycode)
                 {
-                    estado.juego.pantalla = 0;
+                    case ALLEGRO_KEY_UP:
+
+                        estado.juego.opcionEditor--;
+
+                        if(estado.juego.opcionEditor<0)
+                            estado.juego.opcionEditor=1;
+
+                    break;
+
+                    case ALLEGRO_KEY_DOWN:
+
+                        estado.juego.opcionEditor++;
+
+                        if(estado.juego.opcionEditor>1)
+                            estado.juego.opcionEditor=0;
+
+                    break;
+
+                    case ALLEGRO_KEY_ESCAPE:
+
+                        estado.juego.pantalla=MENU;
+
+                    break;
+
+                    case ALLEGRO_KEY_ENTER:
+
+                        if(estado.juego.opcionEditor==0)
+                        {
+                            cargarMapasCreados(&estado);
+
+                            estado.juego.pantalla=JUGAR_MAPAS;
+                        }
+                        else
+                        {
+                            estado.juego.pantalla=EDITOR;
+
+                            limpiarMapaEditor(&estado);
+                        }
+
+                    break;
                 }
 
                 continue;
             }
 
-            if(estado.juego.pantalla == 4)
+            if(estado.juego.pantalla == RANKING)
+            {
+                if(ev.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
+                {
+                    estado.juego.pantalla = MENU;
+                }
+
+                continue;
+            }
+
+            if(estado.juego.pantalla == EDITOR)
             {
                 switch(ev.keyboard.keycode)
                 {
                     case ALLEGRO_KEY_F1:
 
-                        guardarMapaEditor(&estado);
+                        guardarMapaEditor(&estado, estado.juego.nombreMapa);
                         
                         reiniciarJuego(&estado);
                         cargarMapa(&estado, "NivelesCreados/editor.txt");
-                        estado.juego.pantalla = 3;
+                        estado.juego.pantalla = JUEGO;
 
                         break;
 
                     case ALLEGRO_KEY_F5:
 
-                        guardarMapaEditor(&estado);
+                        estado.juego.pantalla = GUARDAR_MAPA;
+                        estado.juego.largoNombreMapa = 0;
+                        estado.juego.nombreMapa[0] = '\0';
                         break;
 
                     case ALLEGRO_KEY_ESCAPE:
 
-                        estado.juego.pantalla = 0;
+                        estado.juego.pantalla = MENU_EDITOR;
                         break;
 
                     case ALLEGRO_KEY_LEFT:
@@ -583,14 +702,41 @@ int main()
                         disparar(&estado);
                         estado.serpiente.municion--;
                     }
-
-                break;
+                    break;
             }
         }
 
         if(ev.type == ALLEGRO_EVENT_KEY_CHAR)
         {
-            if(estado.juego.pantalla == 1)
+            if(estado.juego.pantalla == GUARDAR_MAPA)
+            {
+                int tecla = ev.keyboard.unichar;
+
+                if(tecla >= 32 && tecla <= 126)
+                {
+                    if(estado.juego.largoNombreMapa < 29)
+                    {
+                        estado.juego.nombreMapa[estado.juego.largoNombreMapa] = tecla;
+                        estado.juego.largoNombreMapa++;
+                        estado.juego.nombreMapa[estado.juego.largoNombreMapa] = '\0';
+                    }
+                }
+                else if(tecla == 8)
+                {
+                    if(estado.juego.largoNombreMapa > 0)
+                    {
+                        estado.juego.largoNombreMapa--;
+                        estado.juego.nombreMapa[estado.juego.largoNombreMapa] = '\0';
+                    }
+                }
+                else if(tecla == 13)
+                {
+                    guardarMapaEditor(&estado, estado.juego.nombreMapa);
+                    estado.juego.pantalla = EDITOR;
+                }
+            }
+
+            if(estado.juego.pantalla == INGRESO_NOMBRE)
             {
                 int tecla = ev.keyboard.unichar;
 
@@ -617,9 +763,9 @@ int main()
                     {
                         al_stop_samples();
 
-                        estado.juego.mapaEditor = 0;
+                        estado.juego.mapaEditor = false;
                         reiniciarJuego(&estado);
-                        estado.juego.pantalla = 3;
+                        estado.juego.pantalla = JUEGO;
                     }
                 }
             }
@@ -629,23 +775,35 @@ int main()
         {
             actualizarJuego(&estado);
 
-            if(estado.juego.pantalla == 0)
+            if(estado.juego.pantalla == MENU)
             {
                 dibujarMenu(&estado, font);
             }
-            else if(estado.juego.pantalla == 1)
+            else if(estado.juego.pantalla == JUGAR_MAPAS)
+            {
+                dibujarJugarMapas(&estado,font);
+            }
+            else if(estado.juego.pantalla == MENU_EDITOR)
+            {
+                dibujarMenuEditor(&estado, font);
+            }
+            else if(estado.juego.pantalla == GUARDAR_MAPA)
+            {
+                dibujarGuardarMapa(&estado,font);
+            }
+            else if(estado.juego.pantalla == INGRESO_NOMBRE)
             {
                 dibujarIngresoNombre(&estado, font);
             }
-            else if(estado.juego.pantalla == 2)
+            else if(estado.juego.pantalla == RANKING)
             {
                 dibujarRanking(&estado, font);
             }
-            else if(estado.juego.pantalla == 3)
+            else if(estado.juego.pantalla == JUEGO)
             {
                 dibujarJuego(&estado, font);
             }
-            else if(estado.juego.pantalla == 4)
+            else if(estado.juego.pantalla == EDITOR)
             {
                 dibujarEditor(&estado, font);
             }
@@ -667,7 +825,7 @@ int main()
 
 void actualizarJuego(EstadoJuego *estado)
 {
-    if(estado->juego.pantalla != 3)
+    if(estado->juego.pantalla != JUEGO)
     {
         return;
     }
@@ -1037,7 +1195,7 @@ void actualizarJuego(EstadoJuego *estado)
         else
         {
             registrarRanking(estado);
-            estado->juego.pantalla = 0;
+            estado->juego.pantalla = MENU;
             reiniciarJuego(estado);
             return;
         }
@@ -2622,11 +2780,12 @@ void reiniciarJuego(EstadoJuego *estado)
 
     estado->serpiente.municion = 5;
 
-    estado->juego.mapaEditor = 0;
+    if(!estado->juego.mapaEditor)
+    {
+        sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
 
-    sprintf(estado->juego.archivoNivel, "Niveles/nivel%d.txt", estado->juego.nivel);
-
-    strcpy(estado->juego.nombreNivel, "Pradera");
+        strcpy(estado->juego.nombreNivel, "Pradera");
+    }
 
     cargarMapa(estado, estado->juego.archivoNivel);
 
@@ -2911,14 +3070,18 @@ void dibujarEditor(EstadoJuego *estado, ALLEGRO_FONT *font)
         texto);
 }
 
-void guardarMapaEditor(EstadoJuego *estado)
+void guardarMapaEditor(EstadoJuego *estado, char nombre[])
 {
-    FILE *archivo = fopen("NivelesCreados/editor.txt", "w");
+    char ruta[100];
+
+    sprintf(ruta, "NivelesCreados/%s.txt", nombre);
+
+    FILE *archivo = fopen(ruta, "w");
 
     if(archivo == NULL)
         return;
 
-    /*fprintf(archivo, "5 8 10\n");*/
+    fprintf(archivo, "5 8 10\n");
     
     for(int y=0; y<N; y++)
     {
@@ -2947,4 +3110,150 @@ void limpiarMapaEditor(EstadoJuego *estado)
     estado->cursorY = 0;
 
     estado->bloqueSeleccionado = '#';
+}
+
+void dibujarMenuEditor(EstadoJuego *estado, ALLEGRO_FONT *font)
+{
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0, 0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0, 0,
+        WIDTH,
+        HEIGHT,
+        0);
+
+    ALLEGRO_COLOR color;
+
+    color = estado->juego.opcionEditor==0 ?
+            al_map_rgb(255,255,0):
+            al_map_rgb(255,255,255);
+
+    al_draw_text(
+        font,
+        color,
+        WIDTH/2,
+        220,
+        ALLEGRO_ALIGN_CENTER,
+        "Jugar mapas");
+
+    color = estado->juego.opcionEditor==1 ?
+            al_map_rgb(255,255,0):
+            al_map_rgb(255,255,255);
+
+    al_draw_text(
+        font,
+        color,
+        WIDTH/2,
+        260,
+        ALLEGRO_ALIGN_CENTER,
+        "Crear mapa");
+}
+
+void dibujarGuardarMapa(EstadoJuego *estado, ALLEGRO_FONT *font)
+{
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0,0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0,0,
+        WIDTH,
+        HEIGHT,
+        0);
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        200,
+        ALLEGRO_ALIGN_CENTER,
+        "Nombre del mapa:");
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,0),
+        WIDTH/2,
+        240,
+        ALLEGRO_ALIGN_CENTER,
+        estado->juego.nombreMapa);
+}
+
+void cargarMapasCreados(EstadoJuego *estado)
+{
+    DIR *carpeta;
+    struct dirent *archivo;
+
+    estado->cantidadMapas = 0;
+
+    carpeta = opendir("NivelesCreados");
+
+    if(carpeta == NULL)
+        return;
+
+    while((archivo = readdir(carpeta)) != NULL)
+    {
+        if(strstr(archivo->d_name, ".txt") != NULL)
+        {
+            strcpy(
+                estado->mapas[estado->cantidadMapas],
+                archivo->d_name);
+
+            estado->cantidadMapas++;
+
+            if(estado->cantidadMapas >= MAX_MAPAS)
+                break;
+        }
+    }
+
+    closedir(carpeta);
+
+    estado->mapaSeleccionado = 0;
+}
+
+void dibujarJugarMapas(EstadoJuego *estado, ALLEGRO_FONT *font)
+{
+    al_draw_scaled_bitmap(
+        estado->sprites.fondoMenu,
+        0, 0,
+        al_get_bitmap_width(estado->sprites.fondoMenu),
+        al_get_bitmap_height(estado->sprites.fondoMenu),
+        0, 0,
+        WIDTH,
+        HEIGHT,
+        0);
+
+    al_draw_filled_rectangle(
+        180,
+        20,
+        620,
+        100 + estado->cantidadMapas * 25 + 20,
+        al_map_rgba(0, 0, 0, 170));
+
+    al_draw_text(
+        font,
+        al_map_rgb(255,255,255),
+        WIDTH/2,
+        40,
+        ALLEGRO_ALIGN_CENTER,
+        "Seleccione un mapa");
+
+    for(int i=0;i<estado->cantidadMapas;i++)
+    {
+        ALLEGRO_COLOR color;
+
+        if(i==estado->mapaSeleccionado)
+            color = al_map_rgb(255,255,0);
+        else
+            color = al_map_rgb(255,255,255);
+
+        al_draw_text(
+            font,
+            color,
+            WIDTH/2,
+            100+i*25,
+            ALLEGRO_ALIGN_CENTER,
+            estado->mapas[i]);
+    }
 }
